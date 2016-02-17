@@ -19,9 +19,9 @@ void error(char *msg)
 int main(int argc, char *argv[])
 {
     int sockfd, 
-    	newsockfd, 
-    	portno, pid;
-    	socklen_t clilen;
+    newsockfd, 
+    portno, pid;
+    socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
     char dgram[512];             // Recv buffer
 
@@ -30,11 +30,13 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);	//create socket
-    if (sockfd < 0) 
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);	// Create socket
+    if (sockfd < 0) {
         error("ERROR opening socket");
+    }
+
     memset((char *) &serv_addr, 0, sizeof(serv_addr));	//reset memory
-    //fill in address info
+    // Fill in address info
     portno = atoi(argv[1]);
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
@@ -42,20 +44,17 @@ int main(int argc, char *argv[])
     
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
         error("ERROR on binding");
-     
-    printf("server: waiting for connections...\n");
-     
-    //make sure server is always runner with infinite while loop
-    while(1){
 
-    	//recieve UDP from client
+    printf("server: waiting for connections...\n");
+
+    // Make sure server is always runner with infinite while loop
+    while(1) {
+    	// Receive UDP from client
     	if (recvfrom(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen) < 0)
             error("ERROR on receiving from client");
 
-
-        //echo input back to client 
+        // Echo input back to client 
         if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen) < 0)
             error("ERROR on sending");
-        
     } 
 }
