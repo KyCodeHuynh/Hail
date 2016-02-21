@@ -3,5 +3,6 @@
 
 int main(int argc, char* argv[]) 
 {
+    // TODO: Test of Hail protocol library
     return 0;
 }
