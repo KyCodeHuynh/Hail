@@ -69,8 +69,8 @@ int main(int argc, char* argv[])
     // argv[1] should have server name
     int status;
     struct addrinfo* results;
-    // int getaddrinfo(const char *node, 
-    //                 const char *service, 
+    // int getaddrinfo(const char *hostname, 
+    //                 const char *servname, 
     //                 const struct addrinfo *hints, 
     //                 struct addrinfo **res);
     status = getaddrinfo(HAIL_SERVER, HAIL_PORT, &params, &results);
@@ -148,12 +148,12 @@ int main(int argc, char* argv[])
                     fileBuffer,
                     fileSize,
                     0,
-                    results->ai_addr,
+                    results->ai_addr, // We set results = p earlier
                     results->ai_addrlen);
 
     if (status < 0) {
         char IP4address[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, results->ai_addr, IP4address, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
         fprintf(stderr, "[ERROR]: sendto() %s of %s failed\n", IP4address, FILE_NAME);
         return EXIT_FAILURE;
     }
