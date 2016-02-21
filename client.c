@@ -1,4 +1,3 @@
-
 #include <arpa/inet.h>      // struct in_addr, inet_ntop(), etc.
 #include <errno.h>          // Standard error codes 
 #include <fcntl.h>          // open()
