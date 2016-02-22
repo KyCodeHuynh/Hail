@@ -62,9 +62,8 @@ int main(int argc, char *argv[])
         printf("%d\n", clilen);
 
         // Echo input back to client 
-        if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen ) < 0){
-
+        if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen ) < 0)
             error("ERROR on sending");
-        }
+        
     } 
 }
