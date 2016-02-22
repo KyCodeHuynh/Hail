@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     portno, pid;
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
-    char dgram[512];             // Recv buffer
+    char dgram[5000];             // Recv buffer
 
     if (argc < 2) {
         fprintf(stderr,"ERROR, no port provided\n");
@@ -42,19 +42,29 @@ int main(int argc, char *argv[])
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(portno);
     
+    printf("hello");
+
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
         error("ERROR on binding");
 
+    printf("right before while loop\n");
     printf("server: waiting for connections...\n");
 
-    // Make sure server is always runner with infinite while loop
+    // Make sure server is always runner with infinite while loopclilen
     while(1) {
+        printf("got into while loop\n");
     	// Receive UDP from client
+        clilen = sizeof(cli_addr);
     	if (recvfrom(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen) < 0)
             error("ERROR on receiving from client");
 
+        printf("%s\n", dgram);
+        printf("%d\n", clilen);
+
         // Echo input back to client 
-        if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen) < 0)
+        if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen ) < 0){
+
             error("ERROR on sending");
+        }
     } 
 }
