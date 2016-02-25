@@ -17,7 +17,6 @@ At a high level, we:
 * The other side positively acknowledges received content.
 * The sending side retransmits after some time-out interval for receiving an
   acknowledgement.
-* One of the sides closes the connection.
 
 
 ### Connection Establishment 
@@ -61,7 +60,7 @@ TODO: What is our maximum sequence number? How do we handle wrap-around?
 
 TODO: What does our acknowledgement number specify?
 
-TODO: How do we specify flags? A control code field for: 
+TODO: How do we specify flags? A control code field?
 
 * SYN
 * SYN ACK
@@ -78,6 +77,10 @@ This is all in a buffer memcpy()'ed from a struct.
 ### Closing the Connection
 
 TODO: How do we close the connection? A CLOSE flag in the header? We could have a set of control codes in that case. 
+
+TODO: What error do we give back if the client tries to send more but the server closed the connection?
+
+TODO: What error do we give back if the server tries to keep responding, but the client closed the connection?
 
 
 
