@@ -12,6 +12,10 @@
 #include <sys/types.h>      // Standard types
 #include <unistd.h>         // Standard system calls
 
+#include "hail.h"
+
+// TODO: Declare Hail helpers here
+
 // Uncomment these header-includes if we need to 
 // build and work with the raw networking structs
 

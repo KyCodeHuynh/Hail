@@ -10,6 +10,10 @@
 #include <fcntl.h> 
 #include <unistd.h>
 
+#include "hail.h"
+
+// TODO: Declare Hail helpers here
+
 void error(char *msg)
 {
     perror(msg);
