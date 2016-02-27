@@ -15,9 +15,9 @@ modern Internet.
 At a high level, we: 
 
 * Try to establish a connection, with a maximum number of attempts to do so.
-* Break-up any data to be sent into chunks, called *segments*, then send them
-  to another host. We send up to *flight-window* size many segments at a time.
-* The receiver reorders received segments within a buffer before writing the
+* Break-up any data to be sent into chunks, called *packets*, then send them
+  to another host. We send up to *flight-window* size many packets at a time.
+* The receiver reorders received packets within a buffer before writing the
   data back to disk as a file.
 * The receiver positively acknowledges received content.
 * The sender retransmits if they do not receive the acknowledgement after
@@ -26,7 +26,7 @@ At a high level, we:
 
 ### Segment Format
 
-A Hail segment has the following structure:
+A Hail packet has the following structure:
 
     [ Sequence number         ]  1 byte
     [ Acknowledgement number  ]  1 byte
@@ -35,9 +35,9 @@ A Hail segment has the following structure:
     [ File size               ]  8 bytes 
     [ File data               ]  500 bytes
 
-The total size of any Hail network segment is 512 bytes.
+The total size of any Hail network packet is 512 bytes.
 Having a power-of-2 size allows for easy alignment in memory.
-There is no padding between fields or before/after the segment.
+There is no padding between fields or before/after the packet.
 While the above is aligned on systems with a 4-byte (32-bit) word-size, 
 it is not aligned for systems with a 8-byte (64-bit) word-size. 
 To [prevent automatic padding](http://stackoverflow.com/questions/4306186/structure-padding-and-structure-packing), we specify that the struct be 
@@ -50,15 +50,15 @@ much larger, but that necessarily increases our acknowledgement number size
 to match. We introduce overhead that is unneeded for most transfers.
 
 * Sequence number: this is the most-accessed field and so placed first. 
-  It identifies the order of Hail segments as originally sent. It wraps 
+  It identifies the order of Hail packets as originally sent. It wraps 
   around upon hitting 255, which gives an internal limit of 256 * 500 bytes
   == 128 MB on file size before this edge case is encountered and handled.
 
 * Acknowledgement number: a receiver echoes a sequence number as its
-  acknowledgement. A sender knows to retransmit a particular segment upon not
+  acknowledgement. A sender knows to retransmit a particular packet upon not
   seeing its echoed sequence number after some time-out interval.
 
-* Control code: our control codes mark a segment as being internal to the
+* Control code: our control codes mark a packet as being internal to the
   protocol's functioning. They carry no data, and their functions are explained
   in the relevant sections. Up to 256 such control codes can exist, providing
   for the standard's extensibility.
@@ -79,7 +79,7 @@ to match. We introduce overhead that is unneeded for most transfers.
   size limit of 2 EiB (exbibytes, 2^64 bits, or approximately 2.3 exabytes for
   those who prefer base-10) for individual files on most operating systems
 
-* File data: these are the contents of a file transported by the Hail segment.
+* File data: these are the contents of a file transported by the Hail packet.
   As these are simply raw bytes, applications can apply their own higher-level 
   logic 
 
@@ -93,7 +93,7 @@ struct is packed into a buffer (marshalling/serialized) and unpacked
 Hail opens with a three-way handshake to negotiate a connection. At the moment,
 both hosts only confirm that the version number is between 0 and 2, reserved
 for the development versions of Hail. The handshake begins when a sender
-sends a segment with the `SYN` code set (synchronize). The receiver replies 
+sends a packet with the `SYN` code set (synchronize). The receiver replies 
 with `SYN ACK` (synchronize acknowledge), the sender acknowledges with `ACK`.
 
 The time-out interval for any of the handshake messages is 50 ms. 
@@ -104,10 +104,10 @@ other host is deemed unreachable.
 
 ### Chunking into Packets
 
-The sender sends a chunk of the file at a time. It packs the Hail segments 
+The sender sends a chunk of the file at a time. It packs the Hail packets 
 and fires it off. It can do so again for more of the file up until 
 the *flight window* limit is hit. The flight window limits how many 
-segments may be "in-flight" on the network at any one time. This allows
+packets may be "in-flight" on the network at any one time. This allows
 the sender to easily retransmit any lost or corrupted packets from the
 most recent window.
 
@@ -122,7 +122,7 @@ to avoid a heap allocation limit (which is typically around 1 MB by default).
 ### Closing the Connection
 
 Either the sender or the receiver may at any time close the
-Hail connection by sending a segment with the `CLOSE` control code set.
+Hail connection by sending a packet with the `CLOSE` control code set.
 
 *TODO*: What error do we give back if the client tries to send more but the server closed the connection?
 
@@ -131,20 +131,20 @@ Hail connection by sending a segment with the `CLOSE` control code set.
 
 ## MiniFTP Protocol Design 
 
-MiniFTP organizes the 500 bytes of data sent within a Hail segment.
+MiniFTP organizes the 500 bytes of data sent within a Hail packet.
 
 
 ### File Format
 
-The very first segment (with control code `START`, meaning "start file")
+The very first packet (with control code `START`, meaning "start file")
 reserves the first 255 bytes for the file name. This matches 
 [standard file-system maximums](http://stackoverflow.com/questions/6571435/limit-on-file-name-length-in-bash):
 
-    // Within the 500 bytes of data carried by a Hail segment
+    // Within the 500 bytes of data carried by a Hail packet
     [ File name ] 255 bytes
     [ File data ] 245 bytes
 
-For every segment after that, 500 bytes of data are sent: 
+For every packet after that, 500 bytes of data are sent: 
 
     [ File data ] 500 bytes
 

@@ -6,7 +6,7 @@
 
 // We have to manually disable automatic padding
 // See: http://stackoverflow.com/questions/4306186/structure-padding-and-structure-packing
-typedef struct hail_packet_t {
+typedef struct __attribute__((__packed__)) hail_packet_t {
     char seq_num; // 0-255
     char ack_num; // 0-255
     char control; // 0-255
