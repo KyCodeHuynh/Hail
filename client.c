@@ -12,6 +12,8 @@
 #include <sys/types.h>      // Standard types
 #include <unistd.h>         // Standard system calls
 
+#include "hail.h"
+
 // Uncomment these header-includes if we need to 
 // build and work with the raw networking structs
 

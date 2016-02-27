@@ -10,6 +10,8 @@
 #include <fcntl.h> 
 #include <unistd.h>
 
+#include "hail.h"
+
 void error(char *msg)
 {
     perror(msg);
