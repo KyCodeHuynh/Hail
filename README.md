@@ -93,34 +93,30 @@ struct is packed into a buffer (marshalling/serialized) and unpacked
 Hail opens with a three-way handshake to negotiate a connection. At the moment,
 both hosts only confirm that the version number is between 0 and 2, reserved
 for the development versions of Hail. The handshake begins when a sender
-sends an
+sends a segment with the `SYN` code set (synchronize). The receiver replies 
+with `SYN ACK` (synchronize acknowledge), the sender acknowledges with `ACK`.
 
-Time-out interval for failure to establish connection.
-
-TODO: Inital connect time-out. How long do we wait for trying
-to establish a connection? 
-
-TODO: Max number of initial connect attempts. How many times do 
-try to establish a connection?
+The time-out interval for any of the handshake messages is 50 ms. 
+A maximum of 3 retransmission attempts is made at each step. If 
+any fail to acknowledge after 3 attempts with time-outs, then the 
+other host is deemed unreachable.
 
 
 ### Chunking into Packets
 
-Server waits until all segments received, or hits a time-out interval 
-to give up on waiting. 
+The sender sends a chunk of the file at a time. It packs the Hail segments 
+and fires it off. It can do so again for more of the file up until 
+the *flight window* limit is hit. The flight window limits how many 
+segments may be "in-flight" on the network at any one time. This allows
+the sender to easily retransmit any lost or corrupted packets from the
+most recent window.
 
-TODO: How does the server know about file boundaries, i.e., when all of 
-the contents of a file have been received? Does Hail ignore this and just send
-a byte stream, with the client application noticing EOFs to start a new file?
-Or, we could specify file lengths and send END flags. 
-
-Received packets are put into an array (size allocated as needed or 
-based on packet reporting total file size), then reordered into the final 
-file before being written to disk. That means grabbing just the content portion
-of each packet as it arrives and putting that into the array (copy packet
-into packet struct temporarily to grab).
-
-
+Received packets are put into an array indexed by their sequence numbers 
+before being written to disk. That means grabbing just the content portion
+of each packet as it arrives and putting that into the array. We can 
+allocate the size of the array based on the reported file size to begin. 
+We'll later want to optimize this to write data to disk as it arrives, 
+to avoid a heap allocation limit (which is typically around 1 MB by default). 
 
 
 ### Closing the Connection
@@ -128,9 +124,9 @@ into packet struct temporarily to grab).
 Either the sender or the receiver may at any time close the
 Hail connection by sending a segment with the `CLOSE` control code set.
 
-TODO: What error do we give back if the client tries to send more but the server closed the connection?
+*TODO*: What error do we give back if the client tries to send more but the server closed the connection?
 
-TODO: What error do we give back if the server tries to keep responding, but the client closed the connection?
+*TODO*: What error do we give back if the server tries to keep responding, but the client closed the connection?
 
 
 ## MiniFTP Protocol Design 
@@ -156,7 +152,9 @@ In both cases, we again disable automatic padding.
 
 Because the sequence number is constantly wrapping around for larger 
 files, we cannot use it as a reliable guidepost for the end of a file. 
-Instead, 
+
+*TODO*: How do we handle the file boundaries of large files? We could 
+use the `END` control code in some way.
 
 
 

@@ -12,6 +12,8 @@
 
 #include "hail.h"
 
+// TODO: Declare Hail helpers here
+
 void error(char *msg)
 {
     perror(msg);
