@@ -30,8 +30,24 @@ int main(int argc, char *argv[])
     char dgram[5000];             // Recv buffer
 
     if (argc < 2) {
-        fprintf(stderr,"ERROR, no port provided\n");
-        exit(1);
+        printf(
+            "\nUsage: \t%s portnumber [OPTIONS]\n\n"
+            "Begin receiving messages on portnumber.\n\n"
+            "Options:\n"
+            "-w W, --window -W  Change flight window size to 1 <= W packets\n"
+            "-l L, --loss L     Simulate message loss with probability L in [0,1]\n"
+            "-c C, --corrupt C  Simulate message corruption with probability C in [0,1]\n"
+            "-s,   --silent     Run silently without activity output to stdout or stderr\n\n", 
+            argv[0]
+        );        exit(1);
+    }
+
+    // Handle special options first, so that we can use them later
+    // TODO: Use getopt() to avoid this counting madness
+    // TODO: Define options booleans here
+    else if (argc == 6) {
+        printf("Options not yet implemented!\n");
+        return EXIT_FAILURE;
     }
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);	// Create socket
@@ -48,14 +64,15 @@ int main(int argc, char *argv[])
     
     printf("hello");
 
-    if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
+    if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
         error("ERROR on binding");
+    }
 
     printf("right before while loop\n");
     printf("server: waiting for connections...\n");
 
     // Make sure server is always runner with infinite while loopclilen
-    while(1) {
+    while (1) {
         printf("got into while loop\n");
     	// Receive UDP from client
         clilen = sizeof(cli_addr);
@@ -66,8 +83,8 @@ int main(int argc, char *argv[])
         printf("%d\n", clilen);
 
         // Echo input back to client 
-        if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen ) < 0)
+        if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
             error("ERROR on sending");
-        
+        }
     } 
 }

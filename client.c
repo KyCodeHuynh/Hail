@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
             "Options:\n"
             "-l L, --loss L     Simulate message loss with probability L in [0,1]\n"
             "-c C, --corrupt C  Simulate message corruption with probability C in [0,1]\n"
-            "-s, --silent     Run silently without activity output to stdout or stderr\n\n", 
+            "-s,   --silent     Run silently without activity output to stdout or stderr\n\n", 
             argv[0]
         );
 
