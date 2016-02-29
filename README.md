@@ -65,9 +65,9 @@ to match. We introduce overhead that is unneeded for most transfers.
 
     * SYN
     * SYN ACK
+    * ACK 
     * START
     * END
-    * ACK 
     * CLOSE
 
 * Hail version: designed for graceful backwards compatibility handling, 

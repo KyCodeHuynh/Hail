@@ -108,6 +108,8 @@ int main(int argc, char* argv[])
     // We only need the working information
     results = p;
 
+    // Initiate three-way handshake
+
     // int open(const char *pathname, int flags)
     int fileDescrip = open(FILE_NAME, O_RDONLY);
     if (fileDescrip < 0) {
