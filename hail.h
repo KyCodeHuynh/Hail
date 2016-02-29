@@ -6,6 +6,7 @@
 // Hail - Hail is a transport-layer protocol for reliable data transfer,
 // implemented atop UDP
 
+// Use an enum to have the type system enforce restrictions
 typedef enum hail_control_code_t {
     SYN, 
     SYN_ACK, 
@@ -26,6 +27,7 @@ typedef struct __attribute__((__packed__)) hail_packet_t {
     char file_data[HAIL_CONTENT_SIZE]; // Up to 500 bytes of file data
 } hail_packet_t;
 
+// Constructs a new Hail Packet
 int // -1 on error, 0 otherwise
 construct_hail_packet(
     char seq_num, // 0-255, tracked externally
@@ -36,6 +38,7 @@ construct_hail_packet(
     char file_data[HAIL_CONTENT_SIZE]
 );
 
+// Gives the content delivered by a Hail packet
 int // -1 on error (e.g., invalid packet), 0 otherwise
 packet_data_hail(
     char* packet_buffer, // Pointer to received packet buffer

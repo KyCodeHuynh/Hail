@@ -10,17 +10,18 @@ SERVER_NAME = server-hail
 CLIENT_NAME = client-hail
 TEST_NAME = test-hail
 
-SERVER_SRC = server.c
-CLIENT_SRC = client.c
-TEST_SRC = test.c
+SERVER_SRC = server.c hail.c
+CLIENT_SRC = client.c hail.c
+TEST_SRC = test.c hail.c
 
 all: server client
     
 server:
-	$(CC) $(FLAGS) -o $(SERVER_NAME) $(SERVER_SRC)
+	# Use no optimization by default to avoid introducing regressions
+	$(CC) $(FLAGS) -O0 -o $(SERVER_NAME) $(SERVER_SRC)
 
 client:
-	$(CC) $(FLAGS) -o $(CLIENT_NAME) $(CLIENT_SRC)
+	$(CC) $(FLAGS) -O0 -o $(CLIENT_NAME) $(CLIENT_SRC)
 
 test:
 	$(CC) $(FLAGS) -ggdb -o $(TEST_NAME) $(TEST_SRC)
