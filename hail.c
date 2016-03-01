@@ -12,7 +12,7 @@ construct_hail_packet(
     hail_control_code_t control, 
     char version, 
     uint64_t file_size, 
-    char file_data[HAIL_CONTENT_SIZE],
+    char file_data[HAIL_CONTENT_SIZE]
 )
 {
     memcpy(packet->seq_num, &seq_num, 1);
@@ -28,7 +28,7 @@ construct_hail_packet(
 
 // Gives the content delivered by a Hail packet
 int // -1 on error (e.g., invalid packet), 0 otherwise
-packet_data_hail(
+unpack_hail_packet(
     char* packet_buffer, // Pointer to received packet buffer
     //char content_buffer[HAIL_CONTENT_SIZE], // Pointer to destination buffer for contents; file boundaries handled by MiniFTP
     hail_packet_t* packet

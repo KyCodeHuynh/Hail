@@ -14,8 +14,6 @@
 
 #include "hail.h"
 
-// TODO: Declare Hail helpers here
-
 // Uncomment these header-includes if we need to 
 // build and work with the raw networking structs
 
@@ -108,8 +106,6 @@ int main(int argc, char* argv[])
     // We only need the working information
     results = p;
 
-    // Initiate three-way handshake
-
     // int open(const char *pathname, int flags)
     int fileDescrip = open(FILE_NAME, O_RDONLY);
     if (fileDescrip < 0) {
@@ -140,69 +136,127 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    // Prepare initial Hail packet to start handshake
+    // Outside of loop, to avoid creating multiple packets
+    // We'd lose track of old ones whenever we overwrote addresses otherwise
     hail_packet_t* packet = (hail_packet_t*)malloc(sizeof(hail_packet_t));
     size_t packet_size = sizeof(hail_packet_t);
-    char seq_num = 0;
-    char ack_num = 0;
-    hail_control_code_t control = SYN;
-    char version = 0;
-    uint64_t file_size = fileSize;
-    char file_data[HAIL_CONTENT_SIZE]; 
-    // void* memcpy( void *restrict dest, const void *restrict src, size_t count );
-    memcpy(file_data, fileBuffer, HAIL_CONTENT_SIZE);
-    // Keep track of where we are within the buffer
-    size_t curPos = HAIL_CONTENT_SIZE;
 
-    // Use sendto() rather than bind() + send() as this
-    // is a one-time shot (for now; later we'll break up
-    // the file into different chunks)
-    status = construct_hail_packet(
-        packet,
-        seq_num,
-        ack_num, 
-        control, 
-        version,
-        file_size,
-        file_data
-    );
+    // For now at least, we'll ignore the wasted data space on handshake packets
+    char file_data[HAIL_CONTENT_SIZE]; 
+    memset(file_data, 0, HAIL_CONTENT_SIZE);
 
     // sendto() expects a buffer, not a struct
     char* send_buffer = (char*)malloc(packet_size);
     memcpy(send_buffer, packet, packet_size);
 
-    if (status < 0) {
-        fprintf(stderr, "construct_hail_packet() failed! [Line: %d]\n", __LINE__);
+    // For later receiving of packets
+    char* recv_buffer = (char*)malloc(packet_size);
+    memset(recv_buffer, 0, packet_size);
+
+    // Loop until a three-way handshake has been established
+    bool is_connected = false;
+    while (! is_connected) {
+        // Prepare initial Hail packet to start handshake
+        char seq_num = 0;
+        char ack_num = 0;
+        hail_control_code_t control = SYN;
+        char version = 0;
+        uint64_t file_size = fileSize;
+
+        // Use sendto() rather than bind() + send() as this
+        // is a one-time shot (for now; later we'll break up
+        // the file into different chunks)
+        status = construct_hail_packet(
+            packet,
+            seq_num,
+            ack_num, 
+            control, 
+            version,
+            file_size,
+            file_data
+        );
+
+        if (status < 0) {
+            fprintf(stderr, "construct_hail_packet() failed! [Line: %d]\n", __LINE__);
+        }
+
+        status = sendto(
+            socketFD,              // int sockfd
+            packet,                // const void* msg
+            packet_size,           // int len
+            0,                     // unsigned int flags
+            results->ai_addr,      // const struct sockaddr* to; we set results = p earlier
+            results->ai_addrlen    // socklen_t tolen
+        );  
+
+        if (status < 0) {
+            char IP4address[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
+            fprintf(stderr, "[ERROR]: SYN sendto() %s of %s failed\n", IP4address, FILE_NAME);
+
+            return EXIT_FAILURE;
+        }
+
+        // Received SYN ACK?
+        // Filled by recvfrom(), as OS finds out source address
+        // from headers in packets
+        struct sockaddr server_addr;
+        socklen_t server_addr_len = sizeof(struct sockaddr);
+        int bytes_received = 0;
+
+        bytes_received = recvfrom(
+            socketFD,        // int sockfd; same socket for some connection
+            recv_buffer,     // void* buf
+            packet_size,     // int len
+            0,               // unsigned int flags
+            &server_addr,    // Filled by recvfrom(), as OS finds out source address
+            &server_addr_len // from headers in packets
+        );
+
+        hail_packet_t recv_packet;
+        memset(&recv_packet, 0, packet_size);
+        // TODO: Unpack to see if it's a SYN ACK
+        status = unpack_hail_packet(
+            recv_buffer, 
+            &recv_packet
+        );
+
+        // Server SYN ACK received; send final ACK
+        if (recv_packet.control == SYN_ACK) {
+            seq_num = recv_packet.seq_num + 1;
+            ack_num = recv_packet.seq_num;
+            control = ACK;
+            version = 0;
+            memset(file_data, 0, HAIL_CONTENT_SIZE);
+
+            status = sendto(
+                socketFD,              // int sockfd
+                packet,                // const void* msg
+                packet_size,           // int len
+                0,                     // unsigned int flags
+                results->ai_addr,      // const struct sockaddr* to; we set results = p earlier
+                results->ai_addrlen    // socklen_t tolen
+            ); 
+            if (status < 0) {
+                char IP4address[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
+                fprintf(stderr, "[ERROR]: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
+
+                return EXIT_FAILURE;
+            }
+            else {
+                is_connected = true;
+                break;
+            }
+        }
     }
-
-    // int sendto(int sockfd, 
-    //            const void *msg, 
-    //            int len, 
-    //            unsigned int flags, 
-    //            const struct sockaddr *to, 
-    //            socklen_t tolen);
-    status = sendto(socketFD, 
-                    packet,
-                    packet_size,
-                    0,
-                    results->ai_addr, // We set results = p earlier
-                    results->ai_addrlen);
-
-    if (status < 0) {
-        char IP4address[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
-        fprintf(stderr, "[ERROR]: sendto() %s of %s failed\n", IP4address, FILE_NAME);
-        return EXIT_FAILURE;
-    }
-
     
-    // TODO: Do we begin sending file data as part of ACK? 
-
-    // TODO: Receive SYN ACK. Update curPos within fileBuffer
-
-    // TODO: Send final ACK
 
     // TODO: Send file in chunks. Update curPos!
+    // Keep track of where we are within the buffer
+    // size_t curPos = 0;
+
+    // TODO: Handle sequence numbers
 
     // Need to free up 'results' and everything else
     freeaddrinfo(results);
