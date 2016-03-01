@@ -5,6 +5,7 @@
 // Constructs a new Hail Packet
 int // -1 on error, 0 otherwise
 construct_hail_packet(
+    hail_packet_t* packet,
     char seq_num, // 0-255, tracked externally
     char ack_num, 
     hail_control_code_t control, 

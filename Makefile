@@ -17,11 +17,11 @@ TEST_SRC = test.c hail.c
 all: server client
     
 server:
-	# Use no optimization by default to avoid introducing regressions
-	$(CC) $(FLAGS) -O0 -o $(SERVER_NAME) $(SERVER_SRC)
+	# Use enough optimization by default to be warned about uninitialized variables
+	$(CC) $(FLAGS) -O2 -o $(SERVER_NAME) $(SERVER_SRC)
 
 client:
-	$(CC) $(FLAGS) -O0 -o $(CLIENT_NAME) $(CLIENT_SRC)
+	$(CC) $(FLAGS) -O2 -o $(CLIENT_NAME) $(CLIENT_SRC)
 
 test:
 	$(CC) $(FLAGS) -ggdb -o $(TEST_NAME) $(TEST_SRC)

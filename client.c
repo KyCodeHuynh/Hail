@@ -140,9 +140,40 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
+    // Prepare initial Hail packet to start handshake
+    hail_packet_t* packet = (hail_packet_t*)malloc(sizeof(hail_packet_t));
+    size_t packet_size = sizeof(hail_packet_t);
+    char seq_num = 0;
+    char ack_num = 0;
+    hail_control_code_t control = SYN;
+    char version = 0;
+    uint64_t file_size = fileSize;
+    char file_data[HAIL_CONTENT_SIZE]; 
+    // void* memcpy( void *restrict dest, const void *restrict src, size_t count );
+    memcpy(file_data, fileBuffer, HAIL_CONTENT_SIZE);
+    // Keep track of where we are within the buffer
+    size_t curPos = HAIL_CONTENT_SIZE;
+
     // Use sendto() rather than bind() + send() as this
     // is a one-time shot (for now; later we'll break up
     // the file into different chunks)
+    status = construct_hail_packet(
+        packet,
+        seq_num,
+        ack_num, 
+        control, 
+        version,
+        file_size,
+        file_data
+    );
+
+    // sendto() expects a buffer, not a struct
+    char* send_buffer = (char*)malloc(packet_size);
+    memcpy(send_buffer, packet, packet_size);
+
+    if (status < 0) {
+        fprintf(stderr, "construct_hail_packet() failed! [Line: %d]\n", __LINE__);
+    }
 
     // int sendto(int sockfd, 
     //            const void *msg, 
@@ -151,8 +182,8 @@ int main(int argc, char* argv[])
     //            const struct sockaddr *to, 
     //            socklen_t tolen);
     status = sendto(socketFD, 
-                    fileBuffer,
-                    fileSize,
+                    packet,
+                    packet_size,
                     0,
                     results->ai_addr, // We set results = p earlier
                     results->ai_addrlen);
@@ -164,9 +195,20 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    // Need to free up 'results'
+    
+    // TODO: Do we begin sending file data as part of ACK? 
+
+    // TODO: Receive SYN ACK. Update curPos within fileBuffer
+
+    // TODO: Send final ACK
+
+    // TODO: Send file in chunks. Update curPos!
+
+    // Need to free up 'results' and everything else
     freeaddrinfo(results);
     close(socketFD);
+    free(packet);
+    free(send_buffer);
     free(fileBuffer);
 
     return EXIT_SUCCESS;
