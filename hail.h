@@ -42,10 +42,9 @@ construct_hail_packet(
 
 // Gives the content delivered by a Hail packet
 int // -1 on error (e.g., invalid packet), 0 otherwise
-packet_data_hail(
+unpack_hail_packet(
     char* packet_buffer, // Pointer to received packet buffer
-    char content_buffer[HAIL_CONTENT_SIZE], // Pointer to destination buffer for contents; file boundaries handled by MiniFTP
-    char* seq_num // Pointer to destination for extracted sequence number
+    hail_packet_t* packet // Pointer to filled unpacked packet
 );
 
 
