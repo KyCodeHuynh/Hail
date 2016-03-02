@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "hail.h"
+#include <stdint.h>
 
 // TODO: Declare Hail helpers here
 
@@ -28,6 +29,8 @@ int main(int argc, char *argv[])
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
     char dgram[5000];             // Recv buffer
+    uint8t win_fst;
+    uint_8t win_lst;
 
     if (argc < 2) {
         printf(
@@ -79,8 +82,19 @@ int main(int argc, char *argv[])
     	if (recvfrom(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen) < 0)
             error("ERROR on receiving from client");
 
-        printf("%s\n", dgram);
-        printf("%d\n", clilen);
+        //repack dgram
+        hail_packet_t packet;
+        memcpy(&packet, dgram, sizeof(hail_packet_t));
+
+        //three way handshake
+        if (packet->control == SYN){
+            hail_packet_t response_pkt;
+            construct_hail_packet(response_pkt, 0, 0, SYN_ACK, 0, 0, "");
+        }
+
+        //unpack packet into buffer
+        char response_buffer[sizeof(hail_packet_t)];
+        memcpy(response_buffer, &response_pkt, sizeof(hail_packet_t));
 
         // Echo input back to client 
         if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
