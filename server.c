@@ -1,19 +1,20 @@
-#include <stdio.h>
-#include <sys/types.h>   // definitions of a number of data types used in socket.h and netinet/in.h
-#include <sys/socket.h>  // definitions of structures needed for sockets, e.g. sockaddr
-#include <netinet/in.h>  // constants and structures needed for internet domain addresses, e.g. sockaddr_in
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <sys/wait.h>	/* for the waitpid() system call */
-#include <signal.h>	/* signal name macros, and the kill() prototype */
 #include <fcntl.h> 
+#include <math.h>
+#include <netinet/in.h>  // Constants and structures needed for Internet domain addresses, e.g. sockaddr_in
+#include <signal.h>      // Signal name macros, and the kill() prototype
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>  // Definitions of structures needed for sockets, e.g. sockaddr
+#include <sys/stat.h>
+#include <sys/types.h>   // Definitions of a number of data types used in socket.h and netinet/in.h
+#include <sys/wait.h>    // For the waitpid() system call
 #include <unistd.h>
 
 #include "hail.h"
 #include <stdint.h>
-
-// TODO: Declare Hail helpers here
 
 void error(char *msg)
 {
@@ -23,6 +24,7 @@ void error(char *msg)
 
 int main(int argc, char *argv[])
 {
+    // TODO: Rename as needed
     int sockfd, 
     newsockfd, 
     portno, pid;
@@ -31,6 +33,7 @@ int main(int argc, char *argv[])
     char dgram[5000];             // Recv buffer
     uint8_t win_fst;
     uint8_t win_lst;
+    const size_t packet_size = sizeof(hail_packet_t);
 
     if (argc < 2) {
         printf(
@@ -76,6 +79,12 @@ int main(int argc, char *argv[])
     // printf("right before while loop\n");
     printf("SERVER: Waiting for connections...\n");
 
+    // Only allocate reordering buffer if it was not already created from some packet
+    bool buffer_exists = false;
+    char* reorder_buffer = NULL;
+    hail_packet_t packet;
+    memset(&packet, 0, packet_size);
+
     // Make sure server is always runner with infinite while loopclilen
     while (1) {
         // printf("got into while loop\n");
@@ -103,7 +112,24 @@ int main(int argc, char *argv[])
         // unpack packet into buffer
         char response_buffer[sizeof(hail_packet_t)];
         memcpy(response_buffer, &response_pkt, sizeof(hail_packet_t));
+        memcpy(&packet, dgram, packet_size);
 
+        // Create reordering buffer
+        if (! buffer_exists) {
+            uint64_t file_size = packet.file_size;
+            size_t num_slots = ceil(file_size / HAIL_CONTENT_SIZE);
+
+            reorder_buffer = (char*)malloc(num_slots * HAIL_CONTENT_SIZE);
+            buffer_exists = true;
+        }
+
+        // TODO: Handle different runs of sequence numbers
+        memcpy(&(reorder_buffer[(size_t)packet.seq_num]), packet.file_data, HAIL_CONTENT_SIZE);
+
+        // printf("%s\n", dgram);
+        // printf("%d\n", clilen);
+
+        // TODO: Send ACK back to client
         // Echo input back to client 
         if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
             error("ERROR on sending");
