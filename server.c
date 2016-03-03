@@ -90,6 +90,10 @@ int main(int argc, char *argv[])
         if (packet->control == SYN){
             hail_packet_t response_pkt;
             construct_hail_packet(response_pkt, 0, 0, SYN_ACK, 0, 0, "");
+            printf("Request for connection...\n");
+        }
+        else if(packet->control == ACK){
+            printf("Connection established\n");
         }
 
         //unpack packet into buffer
