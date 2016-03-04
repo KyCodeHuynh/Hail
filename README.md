@@ -6,8 +6,16 @@ UDP.
 MiniFTP is a simple FTP-like protocol. We implement the client -> server
 sending half of it.
 
+- [Hail Protocol Design](#hail-protocol-design)
+    - [Segment Format](#segment-format)
+    - [Connection Establishment](#connection-establishment)
+    - [Chunking into Packets](#chunking-into-packets)
+    - [Closing the Connection](#closing-the-connection)
+- [MiniFTP Protocol Design](#miniftp-protocol-design)
+    - [File Format](#file-format)
 
-## Hail Protocol Design 
+
+## Hail Protocol Design
 
 Hail is based upon TCP, one of the twin backbone protocols of the
 modern Internet. 
