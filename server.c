@@ -98,6 +98,7 @@ int main(int argc, char *argv[])
         }
         else if (packet.control == ACK){
             printf("SERVER: Final ACK received from client. Connection established.\n");
+            break;
         }
 
         // unpack packet into buffer
@@ -109,4 +110,6 @@ int main(int argc, char *argv[])
             error("ERROR on sending");
         }
     } 
+
+    return EXIT_SUCCESS;
 }

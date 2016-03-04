@@ -154,8 +154,8 @@ int main(int argc, char* argv[])
     memset(recv_buffer, 0, packet_size);
 
     // Loop until a three-way handshake has been established
-    bool is_connected = false;
-    while (! is_connected) {
+    bool sent_ack = false;
+    while (! sent_ack) {
         // Prepare initial Hail packet to start handshake
         char seq_num = 0;
         char ack_num = 0;
@@ -196,6 +196,8 @@ int main(int argc, char* argv[])
 
             return EXIT_FAILURE;
         }
+
+        fprintf(stderr, "CLIENT: Sent SYN to start handshake.\n");
 
         // Received SYN ACK?
         // Filled by recvfrom(), as OS finds out source address
@@ -245,7 +247,9 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             }
             else {
-                is_connected = true;
+                sent_ack = true;
+                fprintf(stderr, "CLIENT: Sent ACK in reply to SYN ACK.\n");
+
                 break;
             }
         }
