@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
         memcpy(response_buffer, &response_pkt, sizeof(hail_packet_t));
 
         // Echo input back to client 
-        if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
+        if (sendto(sockfd, response_buffer, sizeof(response_buffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
             error("ERROR on sending");
         }
     } 

@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
 
     // Loop until a three-way handshake has been established
     bool sent_ack = false;
-    while (! sent_ack) {
+    while (!sent_ack) {
         // Prepare initial Hail packet to start handshake
         char seq_num = 0;
         char ack_num = 0;
@@ -225,6 +225,7 @@ int main(int argc, char* argv[])
 
         // Server SYN ACK received; send final ACK
         if (recv_packet.control == SYN_ACK) {
+            fprintf(stderr, "CLIENT: entered SYN_ACK if statement.\n");
             seq_num = recv_packet.seq_num + 1;
             ack_num = recv_packet.seq_num;
             control = ACK;
@@ -239,6 +240,7 @@ int main(int argc, char* argv[])
                 results->ai_addr,      // const struct sockaddr* to; we set results = p earlier
                 results->ai_addrlen    // socklen_t tolen
             ); 
+
             if (status < 0) {
                 char IP4address[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
