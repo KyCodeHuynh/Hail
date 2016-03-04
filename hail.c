@@ -12,15 +12,15 @@ construct_hail_packet(
     hail_control_code_t control, 
     char version, 
     uint64_t file_size, 
-    char file_data[HAIL_CONTENT_SIZE],
+    char file_data[HAIL_CONTENT_SIZE]
 )
 {
-    memcpy(packet->seq_num, &seq_num, 1);
-    memcpy(packet->ack_num, &ack_num, 1);
-    memcpy(packet->control, &control, 1);
-    memcpy(packet->version, &version, 1);
-    memcpy(packet->file_size, &file_size, 8);
-    memcpy(packet->file_data, &file_data, 500);
+    memcpy(&(packet->seq_num), &seq_num, 1);
+    memcpy(&(packet->ack_num), &ack_num, 1);
+    memcpy(&(packet->control), &control, 1);
+    memcpy(&(packet->version), &version, 1);
+    memcpy(&(packet->file_size), &file_size, 8);
+    memcpy(&(packet->file_data), &file_data, 500);
 
     return 0;
 }

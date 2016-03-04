@@ -29,8 +29,8 @@ int main(int argc, char *argv[])
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
     char dgram[5000];             // Recv buffer
-    uint8t win_fst;
-    uint_8t win_lst;
+    uint8_t win_fst;
+    uint8_t win_lst;
 
     if (argc < 2) {
         printf(
@@ -42,7 +42,9 @@ int main(int argc, char *argv[])
             "-c C, --corrupt C  Simulate message corruption with probability C in [0,1]\n"
             "-s,   --silent     Run silently without activity output to stdout or stderr\n\n", 
             argv[0]
-        );        exit(1);
+        );        
+
+        exit(1);
     }
 
     // Handle special options first, so that we can use them later
@@ -71,32 +73,34 @@ int main(int argc, char *argv[])
         error("ERROR on binding");
     }
 
-    printf("right before while loop\n");
-    printf("server: waiting for connections...\n");
+    // printf("right before while loop\n");
+    printf("SERVER: Waiting for connections...\n");
 
     // Make sure server is always runner with infinite while loopclilen
     while (1) {
-        printf("got into while loop\n");
+        // printf("got into while loop\n");
     	// Receive UDP from client
         clilen = sizeof(cli_addr);
-    	if (recvfrom(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen) < 0)
+    	if (recvfrom(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen) < 0) {
             error("ERROR on receiving from client");
+        }
 
-        //repack dgram
         hail_packet_t packet;
+        hail_packet_t response_pkt;
+
+        // Unpack the received message into an easy-to-use struct
         memcpy(&packet, dgram, sizeof(hail_packet_t));
 
-        //three way handshake
-        if (packet->control == SYN){
-            hail_packet_t response_pkt;
-            construct_hail_packet(response_pkt, 0, 0, SYN_ACK, 0, 0, "");
-            printf("Request for connection...\n");
+        // Three-way handshake
+        if (packet.control == SYN) {
+            construct_hail_packet(&response_pkt, 0, 0, SYN_ACK, 0, 0, "");
+            printf("SERVER: SYN ACK sent in response to ACK.\n");
         }
-        else if(packet->control == ACK){
-            printf("Connection established\n");
+        else if (packet.control == ACK){
+            printf("SERVER: Final ACK received from client. Connection established.\n");
         }
 
-        //unpack packet into buffer
+        // unpack packet into buffer
         char response_buffer[sizeof(hail_packet_t)];
         memcpy(response_buffer, &response_pkt, sizeof(hail_packet_t));
 

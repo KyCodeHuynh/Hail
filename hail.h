@@ -37,7 +37,7 @@ construct_hail_packet(
     hail_control_code_t control, 
     char version, 
     uint64_t file_size, 
-    char file_data[HAIL_CONTENT_SIZE],
+    char file_data[HAIL_CONTENT_SIZE]
 );
 
 // Gives the content delivered by a Hail packet
