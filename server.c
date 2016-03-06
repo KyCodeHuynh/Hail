@@ -142,7 +142,6 @@ int main(int argc, char* argv[])
         memcpy(&(reorder_buffer[(size_t)packet.seq_num]), packet.file_data, HAIL_CONTENT_SIZE);
     } 
 
-    // TODO: Match free calls to all malloc()'s
     free(response_buffer);
     free(reorder_buffer);
     return EXIT_SUCCESS;

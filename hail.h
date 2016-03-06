@@ -1,7 +1,8 @@
 #ifndef HAIL_H 
 #define HAIL_H
 
-#define HAIL_CONTENT_SIZE 500 // 500 bytes worth of data
+// 500 bytes worth of data
+#define HAIL_CONTENT_SIZE 500 
 
 // Hail - Hail is a transport-layer protocol for reliable data transfer,
 // implemented atop UDP

@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
     // argv is the argument variable array
     // argc is at least 1, as argv[0] is the program name
 
-    // Avoid magic numbers
+    // Avoid magic numbers. TODO: Do these need atoi() and htons()?
     const char* HAIL_SERVER = {0};
     const char* HAIL_PORT   = {0};
     const char* FILE_NAME   = {0};
@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
     if (status < 0) {
         // gai_strerror() converts error codes to messages
         // See: http://linux.die.net/man/3/gai_strerror
-        fprintf(stderr, "[ERROR]: getaddrinfo() failed: %s\n", gai_strerror(status));
+        fprintf(stderr, "CLIENT -- ERROR: getaddrinfo() failed: %s\n", gai_strerror(status));
         return EXIT_FAILURE;
     }
 
@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
 
     // Failed to make a working socket, so p hit end-of-list
     if (p == NULL) {
-        fprintf(stderr, "[ERROR]: getaddrinfo() gave no working sockets\n");
+        fprintf(stderr, "CLIENT -- ERROR: getaddrinfo() gave no working sockets\n");
         return EXIT_FAILURE;
     }
 
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
     // int open(const char *pathname, int flags)
     int fileDescrip = open(FILE_NAME, O_RDONLY);
     if (fileDescrip < 0) {
-        fprintf(stderr, "[ERROR]: open() of %s failed\n", FILE_NAME);
+        fprintf(stderr, "CLIENT -- ERROR: open() of %s failed\n", FILE_NAME);
         return EXIT_FAILURE;
     }
 
@@ -117,13 +117,13 @@ int main(int argc, char* argv[])
     struct stat fileInfo;
     // int stat(const char *pathname, struct stat *buf)
     if (stat(FILE_NAME, &fileInfo) < 0) {
-        fprintf(stderr, "[ERROR]: stat() on %s failed\n", FILE_NAME);
+        fprintf(stderr, "CLIENT -- ERROR: stat() on %s failed\n", FILE_NAME);
         return EXIT_FAILURE;
     }
 
     // Not a regular file
     if (! S_ISREG(fileInfo.st_mode)) {
-        fprintf(stderr, "[ERROR]: stat() on %s: not a regular file\n", FILE_NAME);
+        fprintf(stderr, "CLIENT -- ERROR: stat() on %s: not a regular file\n", FILE_NAME);
         return EXIT_FAILURE;
     }
 
@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
     off_t fileSize = fileInfo.st_size;
     char* fileBuffer = (char *)malloc(sizeof(char) * fileSize);
     if (read(fileDescrip, fileBuffer, fileSize) < 0) {
-        fprintf(stderr, "[ERROR]: read() of %s into buffer failed\n", FILE_NAME);
+        fprintf(stderr, "CLIENT -- ERROR: read() of %s into buffer failed\n", FILE_NAME);
         return EXIT_FAILURE;
     }
 
@@ -189,12 +189,12 @@ int main(int argc, char* argv[])
         if (status < 0) {
             char IP4address[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
-            fprintf(stderr, "[ERROR]: SYN sendto() %s of %s failed\n", IP4address, FILE_NAME);
+            fprintf(stderr, "CLIENT -- ERROR: SYN sendto() %s of %s failed\n", IP4address, FILE_NAME);
 
             return EXIT_FAILURE;
         }
 
-        fprintf(stderr, "CLIENT: Sent SYN to start handshake.\n");
+        fprintf(stderr, "CLIENT -- Sent SYN to start handshake.\n");
 
         // Received SYN ACK?
         // Filled by recvfrom(), as OS finds out source address
@@ -213,10 +213,10 @@ int main(int argc, char* argv[])
         );
 
         if (bytes_received == 0) {
-            fprintf(stderr, "CLIENT: No bytes received. Assuming connection closed.\n");
+            fprintf(stderr, "CLIENT -- No bytes received. Assuming connection closed.\n");
         }
         else if (bytes_received < 0) {
-            fprintf(stderr, "CLIENT: [ERROR]: recvfrom() failed. Line %d\n", __LINE__);
+            fprintf(stderr, "CLIENT -- ERROR: recvfrom() failed. Line %d\n", __LINE__);
         }
 
         hail_packet_t recv_packet;
@@ -233,7 +233,7 @@ int main(int argc, char* argv[])
 
         // Server SYN ACK received; send final ACK
         if (recv_packet.control == SYN_ACK) {
-            // fprintf(stderr, "CLIENT: Entered SYN_ACK if statement.\n");
+            // fprintf(stderr, "CLIENT -- Entered SYN_ACK if statement.\n");
 
             // Create and send back final ACK
             memset(file_data, 0, HAIL_CONTENT_SIZE);
@@ -259,12 +259,12 @@ int main(int argc, char* argv[])
             if (status < 0) {
                 char IP4address[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
-                fprintf(stderr, "[ERROR]: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
+                fprintf(stderr, "CLIENT -- ERROR: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
 
                 return EXIT_FAILURE;
             }
             else {
-                fprintf(stderr, "CLIENT: Sent ACK in reply to SYN ACK.\n");
+                fprintf(stderr, "CLIENT -- Sent ACK in reply to SYN ACK.\n");
 
                 break;
             }
@@ -281,6 +281,7 @@ int main(int argc, char* argv[])
     close(socketFD);
     free(packet);
     free(send_buffer);
+    free(recv_buffer);
     free(fileBuffer);
 
     return EXIT_SUCCESS;
