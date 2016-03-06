@@ -14,7 +14,6 @@
 #include <unistd.h>
 
 #include "hail.h"
-#include <stdint.h>
 
 void error(char *msg)
 {
