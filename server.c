@@ -18,12 +18,12 @@
 void error(char *msg)
 {
     perror(msg);
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])
 {
-    // TODO: Rename as needed
+    // TODO: Rename and move as needed
     int sockfd, 
     newsockfd, 
     portno, pid;
@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
     }
 
     memset((char *) &serv_addr, 0, sizeof(serv_addr));	//reset memory
+
     // Fill in address info
     portno = atoi(argv[1]);
     serv_addr.sin_family = AF_INET;
@@ -79,10 +80,15 @@ int main(int argc, char *argv[])
     printf("SERVER: Waiting for connections...\n");
 
     // Only allocate reordering buffer if it was not already created from some packet
+    int status = -1;
     bool buffer_exists = false;
     char* reorder_buffer = NULL;
+
     hail_packet_t packet;
+    hail_packet_t response_pkt;
+    char* response_buffer = (char*)malloc(packet_size);
     memset(&packet, 0, packet_size);
+    memset(&response_pkt, 0, packet_size);
 
     // Make sure server is always runner with infinite while loopclilen
     while (1) {
@@ -93,26 +99,35 @@ int main(int argc, char *argv[])
             error("ERROR on receiving from client");
         }
 
-        hail_packet_t packet;
-        hail_packet_t response_pkt;
-
         // Unpack the received message into an easy-to-use struct
-        memcpy(&packet, dgram, sizeof(hail_packet_t));
+        status = unpack_hail_packet(dgram, &packet);
 
         // Three-way handshake
         if (packet.control == SYN) {
-            construct_hail_packet(&response_pkt, 0, 0, SYN_ACK, 0, 0, "");
+            construct_hail_packet(
+                &response_pkt,      // Packet pointer 
+                packet.seq_num + 1, // Sequence number
+                packet.seq_num,     // Acknowledgement number
+                SYN_ACK,            // Control code
+                0,                  // Version
+                0,                  // File size 
+                ""                  // File content
+            );
+
+            // Send SYN ACK back to client
+            if (sendto(sockfd, response_buffer, sizeof(response_buffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
+                error("ERROR on sending");
+            }
+
             printf("SERVER: SYN ACK sent in response to ACK.\n");
         }
         else if (packet.control == ACK){
             printf("SERVER: Final ACK received from client. Connection established.\n");
+
             break;
         }
 
-        // unpack packet into buffer
-        char response_buffer[sizeof(hail_packet_t)];
         memcpy(response_buffer, &response_pkt, sizeof(hail_packet_t));
-        memcpy(&packet, dgram, packet_size);
 
         // Create reordering buffer
         if (! buffer_exists) {
@@ -125,16 +140,10 @@ int main(int argc, char *argv[])
 
         // TODO: Handle different runs of sequence numbers
         memcpy(&(reorder_buffer[(size_t)packet.seq_num]), packet.file_data, HAIL_CONTENT_SIZE);
-
-        // printf("%s\n", dgram);
-        // printf("%d\n", clilen);
-
-        // TODO: Send ACK back to client
-        // Echo input back to client 
-        if (sendto(sockfd, response_buffer, sizeof(response_buffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
-            error("ERROR on sending");
-        }
     } 
 
+    // TODO: Match free calls to all malloc()'s
+    free(response_buffer);
+    free(reorder_buffer);
     return EXIT_SUCCESS;
 }

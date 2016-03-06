@@ -153,27 +153,25 @@ int main(int argc, char* argv[])
     char* recv_buffer = (char*)malloc(packet_size);
     memset(recv_buffer, 0, packet_size);
 
-    // Loop until a three-way handshake has been established
-    bool sent_ack = false;
-    while (!sent_ack) {
-        // Prepare initial Hail packet to start handshake
-        char seq_num = 0;
-        char ack_num = 0;
-        hail_control_code_t control = SYN;
-        char version = 0;
-        uint64_t file_size = fileSize;
+    char seq_num = 0;
+    char ack_num = 0;
+    hail_control_code_t control = SYN;
+    char version = 0;
+    uint64_t file_size = fileSize;
 
+    // Loop until a three-way handshake has been established
+    while (true) {
         // Use sendto() rather than bind() + send() as this
         // is a one-time shot (for now; later we'll break up
         // the file into different chunks)
         status = construct_hail_packet(
-            packet,
-            seq_num,
-            ack_num, 
-            control, 
-            version,
-            file_size,
-            file_data
+            packet,    // Packet pointer
+            seq_num,   // Sequence number
+            ack_num,   // Acknowledgement number
+            control,   // Control code
+            version,   // Version
+            file_size, // File size
+            file_data  // File data
         );
 
         if (status < 0) {
@@ -206,6 +204,7 @@ int main(int argc, char* argv[])
         socklen_t server_addr_len = sizeof(struct sockaddr);
         int bytes_received = 0;
 
+        // TODO: Check bytes_received value for sudden closed connection, etc.
         bytes_received = recvfrom(
             socketFD,        // int sockfd; same socket for some connection
             recv_buffer,     // void* buf
@@ -217,28 +216,39 @@ int main(int argc, char* argv[])
 
         hail_packet_t recv_packet;
         memset(&recv_packet, 0, packet_size);
-        // TODO: Unpack to see if it's a SYN ACK
+        // Unpack to see if it's a SYN ACK
         status = unpack_hail_packet(
             recv_buffer, 
             &recv_packet
         );
 
+        if (status < 0) {
+            fprintf(stderr, "unpack_hail_packet() failed! [Line: %d]\n", __LINE__);
+        }
+
         // Server SYN ACK received; send final ACK
         if (recv_packet.control == SYN_ACK) {
-            fprintf(stderr, "CLIENT: entered SYN_ACK if statement.\n");
-            seq_num = recv_packet.seq_num + 1;
-            ack_num = recv_packet.seq_num;
-            control = ACK;
-            version = 0;
+            // fprintf(stderr, "CLIENT: Entered SYN_ACK if statement.\n");
+
+            // Create and send back final ACK
             memset(file_data, 0, HAIL_CONTENT_SIZE);
+            status = construct_hail_packet(
+                packet,   
+                recv_packet.seq_num + 1,  
+                recv_packet.seq_num,  
+                ACK,  
+                0,  
+                file_size,
+                file_data 
+            );
 
             status = sendto(
-                socketFD,              // int sockfd
-                packet,                // const void* msg
-                packet_size,           // int len
-                0,                     // unsigned int flags
-                results->ai_addr,      // const struct sockaddr* to; we set results = p earlier
-                results->ai_addrlen    // socklen_t tolen
+                socketFD,              
+                packet,                
+                packet_size,           
+                0,                     
+                results->ai_addr,      
+                results->ai_addrlen    
             ); 
 
             if (status < 0) {
@@ -249,7 +259,6 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             }
             else {
-                sent_ack = true;
                 fprintf(stderr, "CLIENT: Sent ACK in reply to SYN ACK.\n");
 
                 break;
