@@ -22,7 +22,7 @@ construct_hail_packet(
     memcpy(&(packet->file_size), &file_size, 8);
     memcpy(&(packet->file_data), &file_data, 500);
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 
@@ -36,5 +36,5 @@ unpack_hail_packet(
 {
     memcpy(packet, packet_buffer, sizeof(hail_packet_t));
 
-    return 0;
+    return EXIT_SUCCESS;
 }

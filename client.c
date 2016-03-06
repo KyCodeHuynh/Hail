@@ -65,7 +65,6 @@ int main(int argc, char* argv[])
     // Use a UDP datagram socket type
     // 'ai' is 'addrinfo'.
     params.ai_socktype = SOCK_DGRAM;
-    // TODO: Generalize to IPv4 or IPv6
     params.ai_family = AF_INET;
 
     // argv[1] should have server name
@@ -139,7 +138,7 @@ int main(int argc, char* argv[])
     // Outside of loop, to avoid creating multiple packets
     // We'd lose track of old ones whenever we overwrote addresses otherwise
     hail_packet_t* packet = (hail_packet_t*)malloc(sizeof(hail_packet_t));
-    size_t packet_size = sizeof(hail_packet_t);
+    const size_t packet_size = sizeof(hail_packet_t);
 
     // For now at least, we'll ignore the wasted data space on handshake packets
     char file_data[HAIL_CONTENT_SIZE]; 
@@ -204,7 +203,6 @@ int main(int argc, char* argv[])
         socklen_t server_addr_len = sizeof(struct sockaddr);
         int bytes_received = 0;
 
-        // TODO: Check bytes_received value for sudden closed connection, etc.
         bytes_received = recvfrom(
             socketFD,        // int sockfd; same socket for some connection
             recv_buffer,     // void* buf
@@ -213,6 +211,13 @@ int main(int argc, char* argv[])
             &server_addr,    // Filled by recvfrom(), as OS finds out source address
             &server_addr_len // from headers in packets
         );
+
+        if (bytes_received == 0) {
+            fprintf(stderr, "CLIENT: No bytes received. Assuming connection closed.\n");
+        }
+        else if (bytes_received < 0) {
+            fprintf(stderr, "CLIENT: [ERROR]: recvfrom() failed. Line %d\n", __LINE__);
+        }
 
         hail_packet_t recv_packet;
         memset(&recv_packet, 0, packet_size);
@@ -270,8 +275,6 @@ int main(int argc, char* argv[])
     // TODO: Send file in chunks. Update curPos!
     // Keep track of where we are within the buffer
     // size_t curPos = 0;
-
-    // TODO: Handle sequence numbers
 
     // Need to free up 'results' and everything else
     freeaddrinfo(results);

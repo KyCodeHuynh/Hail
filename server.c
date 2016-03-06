@@ -21,9 +21,8 @@ void error(char *msg)
     exit(EXIT_FAILURE);
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
-    // TODO: Rename and move as needed
     int sockfd, 
     newsockfd, 
     portno, pid;
@@ -46,23 +45,24 @@ int main(int argc, char *argv[])
             argv[0]
         );        
 
-        exit(1);
+        return EXIT_FAILURE;
     }
 
     // Handle special options first, so that we can use them later
     // TODO: Use getopt() to avoid this counting madness
     // TODO: Define options booleans here
     else if (argc == 6) {
-        printf("Options not yet implemented!\n");
-        return EXIT_FAILURE;
+        error("SERVER -- Options not yet implemented!\n");
     }
 
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);	// Create socket
+    // Create socket
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);	
     if (sockfd < 0) {
-        error("ERROR opening socket");
+        error("SERVER -- ERROR: Opening socket");
     }
 
-    memset((char *) &serv_addr, 0, sizeof(serv_addr));	//reset memory
+    // Initialize to 0 to avoid junk data
+    memset((char *) &serv_addr, 0, sizeof(serv_addr));
 
     // Fill in address info
     portno = atoi(argv[1]);
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
     }
 
     // printf("right before while loop\n");
-    printf("SERVER: Waiting for connections...\n");
+    printf("SERVER -- Waiting for connections...\n");
 
     // Only allocate reordering buffer if it was not already created from some packet
     int status = -1;
@@ -91,12 +91,12 @@ int main(int argc, char *argv[])
     memset(&response_pkt, 0, packet_size);
 
     // Make sure server is always runner with infinite while loopclilen
-    while (1) {
-        // printf("got into while loop\n");
-    	// Receive UDP from client
+    while (true) {
+        // printf("SERVER: Got into while loop\n");
+    	// Receive message from client
         clilen = sizeof(cli_addr);
     	if (recvfrom(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen) < 0) {
-            error("ERROR on receiving from client");
+            error("SERVER -- ERROR: Receiving from client failed");
         }
 
         // Unpack the received message into an easy-to-use struct
@@ -116,13 +116,13 @@ int main(int argc, char *argv[])
 
             // Send SYN ACK back to client
             if (sendto(sockfd, response_buffer, sizeof(response_buffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
-                error("ERROR on sending");
+                error("SERVER -- ERROR on sending");
             }
 
-            printf("SERVER: SYN ACK sent in response to ACK.\n");
+            printf("SERVER -- SYN ACK sent in response to ACK.\n");
         }
         else if (packet.control == ACK){
-            printf("SERVER: Final ACK received from client. Connection established.\n");
+            printf("SERVER -- Final ACK received from client. Connection established!\n");
 
             break;
         }
