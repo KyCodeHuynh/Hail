@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
         }
         else if (packet.control == ACK){
             printf("SERVER: Final ACK received from client. Connection established.\n");
+            break;
         }
 
         // unpack packet into buffer
@@ -130,8 +131,10 @@ int main(int argc, char *argv[])
 
         // TODO: Send ACK back to client
         // Echo input back to client 
-        if (sendto(sockfd, dgram, sizeof(dgram), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
+        if (sendto(sockfd, response_buffer, sizeof(response_buffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
             error("ERROR on sending");
         }
     } 
+
+    return EXIT_SUCCESS;
 }

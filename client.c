@@ -154,8 +154,8 @@ int main(int argc, char* argv[])
     memset(recv_buffer, 0, packet_size);
 
     // Loop until a three-way handshake has been established
-    bool is_connected = false;
-    while (! is_connected) {
+    bool sent_ack = false;
+    while (!sent_ack) {
         // Prepare initial Hail packet to start handshake
         char seq_num = 0;
         char ack_num = 0;
@@ -197,6 +197,8 @@ int main(int argc, char* argv[])
             return EXIT_FAILURE;
         }
 
+        fprintf(stderr, "CLIENT: Sent SYN to start handshake.\n");
+
         // Received SYN ACK?
         // Filled by recvfrom(), as OS finds out source address
         // from headers in packets
@@ -223,6 +225,7 @@ int main(int argc, char* argv[])
 
         // Server SYN ACK received; send final ACK
         if (recv_packet.control == SYN_ACK) {
+            fprintf(stderr, "CLIENT: entered SYN_ACK if statement.\n");
             seq_num = recv_packet.seq_num + 1;
             ack_num = recv_packet.seq_num;
             control = ACK;
@@ -237,6 +240,7 @@ int main(int argc, char* argv[])
                 results->ai_addr,      // const struct sockaddr* to; we set results = p earlier
                 results->ai_addrlen    // socklen_t tolen
             ); 
+
             if (status < 0) {
                 char IP4address[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
@@ -245,7 +249,9 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             }
             else {
-                is_connected = true;
+                sent_ack = true;
+                fprintf(stderr, "CLIENT: Sent ACK in reply to SYN ACK.\n");
+
                 break;
             }
         }
