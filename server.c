@@ -23,9 +23,7 @@ void error(char *msg)
 
 int main(int argc, char* argv[])
 {
-    int sockfd, 
-    newsockfd, 
-    portno, pid;
+    int sockfd, portno;
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
     char dgram[5000];             // Recv buffer
@@ -69,8 +67,6 @@ int main(int argc, char* argv[])
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(portno);
-    
-    printf("hello");
 
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
         error("ERROR on binding");
@@ -81,8 +77,7 @@ int main(int argc, char* argv[])
 
     // Only allocate reordering buffer if it was not already created from some packet
     int status = -1;
-    bool buffer_exists = false;
-    char* reorder_buffer = NULL;
+   
 
     hail_packet_t packet;
     hail_packet_t response_pkt;
@@ -104,6 +99,9 @@ int main(int argc, char* argv[])
 
         // Three-way handshake
         if (packet.control == SYN) {
+
+            printf("CLIENT -- Sent SYN to start handshake.\n"); 
+
             construct_hail_packet(
                 &response_pkt,      // Packet pointer 
                 packet.seq_num + 1, // Sequence number
@@ -114,35 +112,58 @@ int main(int argc, char* argv[])
                 ""                  // File content
             );
 
+            memcpy(response_buffer, &response_pkt, sizeof(hail_packet_t));
             // Send SYN ACK back to client
             if (sendto(sockfd, response_buffer, sizeof(response_buffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
                 error("SERVER -- ERROR on sending");
             }
 
-            printf("SERVER -- SYN ACK sent in response to ACK.\n");
         }
         else if (packet.control == ACK){
+            printf("CLIENT -- Sent ACK in reply to SYN ACK.\n");
             printf("SERVER -- Final ACK received from client. Connection established!\n");
-
+            
             break;
         }
+        
+        /*
+        HANDLE FILES
+           int fileDescrip = open(FILE_NAME, O_RDONLY);
+            if (fileDescrip < 0) {
+                fprintf(stderr, "CLIENT -- ERROR: open() of %s failed\n", FILE_NAME);
+                return EXIT_FAILURE;
+            }
 
-        memcpy(response_buffer, &response_pkt, sizeof(hail_packet_t));
+            // CERT recommends against fseek() and ftell() for determining file size
+            // See: https://is.gd/mwJDph-
+            struct stat fileInfo;
+            // int stat(const char *pathname, struct stat *buf)
+            if (stat(FILE_NAME, &fileInfo) < 0) {
+                fprintf(stderr, "CLIENT -- ERROR: stat() on %s failed\n", FILE_NAME);
+                return EXIT_FAILURE;
+            }
 
-        // Create reordering buffer
-        if (! buffer_exists) {
-            uint64_t file_size = packet.file_size;
-            size_t num_slots = ceil(file_size / HAIL_CONTENT_SIZE);
+            // Not a regular file
+            if (! S_ISREG(fileInfo.st_mode)) {
+                fprintf(stderr, "CLIENT -- ERROR: stat() on %s: not a regular file\n", FILE_NAME);
+                return EXIT_FAILURE;
+            }
 
-            reorder_buffer = (char*)malloc(num_slots * HAIL_CONTENT_SIZE);
-            buffer_exists = true;
-        }
+            // Read file into buffer
+            off_t fileSize = fileInfo.st_size;
+            char* fileBuffer = (char *)malloc(sizeof(char) * fileSize);
+            if (read(fileDescrip, fileBuffer, fileSize) < 0) {
+                fprintf(stderr, "CLIENT -- ERROR: read() of %s into buffer failed\n", FILE_NAME);
+                return EXIT_FAILURE;
+            }   
+        */
 
-        // TODO: Handle different runs of sequence numbers
-        memcpy(&(reorder_buffer[(size_t)packet.seq_num]), packet.file_data, HAIL_CONTENT_SIZE);
+        
+
+        
     } 
 
     free(response_buffer);
-    free(reorder_buffer);
+    //free(reorder_buffer);
     return EXIT_SUCCESS;
 }

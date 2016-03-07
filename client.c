@@ -70,6 +70,8 @@ int main(int argc, char* argv[])
     // argv[1] should have server name
     int status;
     struct addrinfo* results;
+     bool buffer_exists = false;
+    char* reorder_buffer = NULL;
     // int getaddrinfo(const char *hostname, 
     //                 const char *servname, 
     //                 const struct addrinfo *hints, 
@@ -105,36 +107,7 @@ int main(int argc, char* argv[])
     // We only need the working information
     results = p;
 
-    // int open(const char *pathname, int flags)
-    int fileDescrip = open(FILE_NAME, O_RDONLY);
-    if (fileDescrip < 0) {
-        fprintf(stderr, "CLIENT -- ERROR: open() of %s failed\n", FILE_NAME);
-        return EXIT_FAILURE;
-    }
-
-    // CERT recommends against fseek() and ftell() for determining file size
-    // See: https://is.gd/mwJDph-
-    struct stat fileInfo;
-    // int stat(const char *pathname, struct stat *buf)
-    if (stat(FILE_NAME, &fileInfo) < 0) {
-        fprintf(stderr, "CLIENT -- ERROR: stat() on %s failed\n", FILE_NAME);
-        return EXIT_FAILURE;
-    }
-
-    // Not a regular file
-    if (! S_ISREG(fileInfo.st_mode)) {
-        fprintf(stderr, "CLIENT -- ERROR: stat() on %s: not a regular file\n", FILE_NAME);
-        return EXIT_FAILURE;
-    }
-
-    // Read file into buffer
-    off_t fileSize = fileInfo.st_size;
-    char* fileBuffer = (char *)malloc(sizeof(char) * fileSize);
-    if (read(fileDescrip, fileBuffer, fileSize) < 0) {
-        fprintf(stderr, "CLIENT -- ERROR: read() of %s into buffer failed\n", FILE_NAME);
-        return EXIT_FAILURE;
-    }
-
+ 
     // Outside of loop, to avoid creating multiple packets
     // We'd lose track of old ones whenever we overwrote addresses otherwise
     hail_packet_t* packet = (hail_packet_t*)malloc(sizeof(hail_packet_t));
@@ -156,7 +129,7 @@ int main(int argc, char* argv[])
     char ack_num = 0;
     hail_control_code_t control = SYN;
     char version = 0;
-    uint64_t file_size = fileSize;
+    uint64_t file_size = 0;
 
     // Loop until a three-way handshake has been established
     while (true) {
@@ -177,24 +150,22 @@ int main(int argc, char* argv[])
             fprintf(stderr, "construct_hail_packet() failed! [Line: %d]\n", __LINE__);
         }
 
-        status = sendto(
+        if (sendto(
             socketFD,              // int sockfd
             packet,                // const void* msg
             packet_size,           // int len
             0,                     // unsigned int flags
             results->ai_addr,      // const struct sockaddr* to; we set results = p earlier
             results->ai_addrlen    // socklen_t tolen
-        );  
 
-        if (status < 0) {
+            ) < 0) {
+
             char IP4address[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
             fprintf(stderr, "CLIENT -- ERROR: SYN sendto() %s of %s failed\n", IP4address, FILE_NAME);
 
             return EXIT_FAILURE;
         }
-
-        fprintf(stderr, "CLIENT -- Sent SYN to start handshake.\n");
 
         // Received SYN ACK?
         // Filled by recvfrom(), as OS finds out source address
@@ -221,20 +192,16 @@ int main(int argc, char* argv[])
 
         hail_packet_t recv_packet;
         memset(&recv_packet, 0, packet_size);
+        
         // Unpack to see if it's a SYN ACK
-        status = unpack_hail_packet(
-            recv_buffer, 
-            &recv_packet
-        );
-
-        if (status < 0) {
+        if ( unpack_hail_packet(recv_buffer, &recv_packet) < 0) {
             fprintf(stderr, "unpack_hail_packet() failed! [Line: %d]\n", __LINE__);
         }
 
         // Server SYN ACK received; send final ACK
         if (recv_packet.control == SYN_ACK) {
             // fprintf(stderr, "CLIENT -- Entered SYN_ACK if statement.\n");
-
+            printf("SERVER -- SYN ACK sent in response to SYN.\n");
             // Create and send back final ACK
             memset(file_data, 0, HAIL_CONTENT_SIZE);
             status = construct_hail_packet(
@@ -247,28 +214,31 @@ int main(int argc, char* argv[])
                 file_data 
             );
 
-            status = sendto(
-                socketFD,              
-                packet,                
-                packet_size,           
-                0,                     
-                results->ai_addr,      
-                results->ai_addrlen    
-            ); 
-
-            if (status < 0) {
+            if (sendto(socketFD, packet, packet_size,0, results->ai_addr, results->ai_addrlen) < 0) {
+                
                 char IP4address[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
                 fprintf(stderr, "CLIENT -- ERROR: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
 
                 return EXIT_FAILURE;
             }
-            else {
-                fprintf(stderr, "CLIENT -- Sent ACK in reply to SYN ACK.\n");
 
-                break;
-            }
+            //send request for file
         }
+
+
+
+        // Create reordering buffer
+        /*if (! buffer_exists) {
+            uint64_t file_size = packet.file_size;
+            size_t num_slots = ceil(file_size / HAIL_CONTENT_SIZE);
+
+            reorder_buffer = (char*)malloc(num_slots * HAIL_CONTENT_SIZE);
+            buffer_exists = true;
+        }
+
+        // TODO: Handle different runs of sequence numbers
+        memcpy(&(reorder_buffer[(size_t)packet.seq_num]), packet.file_data, HAIL_CONTENT_SIZE);*/
     }
     
 
@@ -282,7 +252,6 @@ int main(int argc, char* argv[])
     free(packet);
     free(send_buffer);
     free(recv_buffer);
-    free(fileBuffer);
 
     return EXIT_SUCCESS;
 }
