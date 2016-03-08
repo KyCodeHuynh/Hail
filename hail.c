@@ -20,7 +20,7 @@ construct_hail_packet(
     memcpy(&(packet->control), &control, 1);
     memcpy(&(packet->version), &version, 1);
     memcpy(&(packet->file_size), &file_size, 8);
-    memcpy(&(packet->file_data), &file_data, 500);
+    memcpy(&(packet->file_data), file_data, 500);
 
     return EXIT_SUCCESS;
 }

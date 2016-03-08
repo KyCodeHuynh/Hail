@@ -1,6 +1,7 @@
 #include <arpa/inet.h>      // struct in_addr, inet_ntop(), etc.
 #include <errno.h>          // Standard error codes 
 #include <fcntl.h>          // open()
+#include <math.h>
 #include <netdb.h>          // getaddrinfo()
 // #include <netinet/in.h>     // struct sockaddr_in and struct in_addr
 #include <stdbool.h>        // 'true' and 'false' literals
@@ -26,7 +27,6 @@ int main(int argc, char* argv[])
     // Avoid magic numbers. TODO: Do these need atoi() and htons()?
     const char* HAIL_SERVER = {0};
     const char* HAIL_PORT   = {0};
-    const char* FILE_NAME   = {0};
 
     // Need at least 'hostname port filename'
     // For formatting multi-line literal strings,
@@ -55,7 +55,13 @@ int main(int argc, char* argv[])
     // We're here, so enough options were passed in
     HAIL_SERVER = argv[1];
     HAIL_PORT   = argv[2];
-    FILE_NAME   = argv[3];
+
+    unsigned int filename_length = fmin(255, strlen(argv[3]));
+    char* FILE_NAME = (char *)malloc(256 * sizeof(char));
+    memcpy(FILE_NAME, argv[3], filename_length);
+    FILE_NAME[filename_length + 1] = '\0';
+
+    fprintf(stderr, "CLIENT -- File name from argv[3]: \"%s\"\n", FILE_NAME);
 
     // 'hints' is an addrinfo that's given to 
     // getaddrinfo() to specify parameters
@@ -70,7 +76,7 @@ int main(int argc, char* argv[])
     // argv[1] should have server name
     int status;
     struct addrinfo* results;
-     bool buffer_exists = false;
+    bool buffer_exists = false;
     char* reorder_buffer = NULL;
     // int getaddrinfo(const char *hostname, 
     //                 const char *servname, 
@@ -202,8 +208,12 @@ int main(int argc, char* argv[])
         if (recv_packet.control == SYN_ACK) {
             // fprintf(stderr, "CLIENT -- Entered SYN_ACK if statement.\n");
             printf("SERVER -- SYN ACK sent in response to SYN.\n");
+
+            // Filename + nullbyte
+            memcpy(file_data, FILE_NAME, filename_length + 1);
+            fprintf(stderr, "CLIENT -- File name in send buffer: \"%s\"\n", file_data);
+
             // Create and send back final ACK
-            
             status = construct_hail_packet(
                 packet,   
                 recv_packet.seq_num + 1,  
@@ -211,10 +221,10 @@ int main(int argc, char* argv[])
                 ACK,  
                 0,  
                 file_size,
-                "LICENSE" 
+                file_data
             );
 
-            printf("%s\n", packet->file_data);
+            // printf("%s\n", packet->file_data);
             if (sendto(socketFD, packet, packet_size,0, results->ai_addr, results->ai_addrlen) < 0) {
                 
                 char IP4address[INET_ADDRSTRLEN];
@@ -254,6 +264,7 @@ int main(int argc, char* argv[])
     // Need to free up 'results' and everything else
     freeaddrinfo(results);
     close(socketFD);
+    free(FILE_NAME);
     free(packet);
     free(send_buffer);
     free(recv_buffer);
