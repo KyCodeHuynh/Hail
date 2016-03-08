@@ -76,8 +76,6 @@ int main(int argc, char* argv[])
     // argv[1] should have server name
     int status;
     struct addrinfo* results;
-    bool buffer_exists = false;
-    char* reorder_buffer = NULL;
     // int getaddrinfo(const char *hostname, 
     //                 const char *servname, 
     //                 const struct addrinfo *hints, 
@@ -200,7 +198,7 @@ int main(int argc, char* argv[])
         memset(&recv_packet, 0, packet_size);
         
         // Unpack to see if it's a SYN ACK
-        if ( unpack_hail_packet(recv_buffer, &recv_packet) < 0) {
+        if (unpack_hail_packet(recv_buffer, &recv_packet) < 0) {
             fprintf(stderr, "unpack_hail_packet() failed! [Line: %d]\n", __LINE__);
         }
 
@@ -239,31 +237,66 @@ int main(int argc, char* argv[])
         }
         else{
             printf("%s\n", recv_buffer);
+        }       
+    }
+
+    // Loop until all file data has been transferred
+    bool buffer_exists = false;
+    char* reorder_buffer = NULL;
+    uint64_t data_bytes_received = 0;
+    while (true) {
+        struct sockaddr server_addr;
+        socklen_t server_addr_len = sizeof(struct sockaddr);
+        int bytes_received = 0;
+        bytes_received = recvfrom(
+            socketFD,        // int sockfd; same socket for some connection
+            recv_buffer,     // void* buf
+            packet_size,     // int len
+            0,               // unsigned int flags
+            &server_addr,    // Filled by recvfrom(), as OS finds out source address
+            &server_addr_len // from headers in packets
+        );
+
+        if (bytes_received == 0) {
+            fprintf(stderr, "CLIENT -- No bytes received. Assuming connection closed.\n");
+        }
+        else if (bytes_received < 0) {
+            fprintf(stderr, "CLIENT -- ERROR: recvfrom() failed. Line %d\n", __LINE__);
         }
 
+        // Again unpack, this time to grab data
+        hail_packet_t recv_packet;
+        memset(&recv_packet, 0, packet_size);
+        if (unpack_hail_packet(recv_buffer, &recv_packet) < 0) {
+            fprintf(stderr, "unpack_hail_packet() failed! [Line: %d]\n", __LINE__);
+        }
 
-
-        // Create reordering buffer
-        /*if (! buffer_exists) {
-            uint64_t file_size = packet.file_size;
+        // Create reordering buffer?
+        if (! buffer_exists) {
+            uint64_t file_size = recv_packet.file_size;
             size_t num_slots = ceil(file_size / HAIL_CONTENT_SIZE);
 
             reorder_buffer = (char*)malloc(num_slots * HAIL_CONTENT_SIZE);
             buffer_exists = true;
         }
 
-        // TODO: Handle different runs of sequence numbers
-        memcpy(&(reorder_buffer[(size_t)packet.seq_num]), packet.file_data, HAIL_CONTENT_SIZE);*/
-    }
-    
+        // Slot into reordering buffer by sequence number
+        memcpy(&(reorder_buffer[(size_t)recv_packet.seq_num]), recv_packet.file_data, HAIL_CONTENT_SIZE);
 
-    // TODO: Send file in chunks. Update curPos!
-    // Keep track of where we are within the buffer
-    // size_t curPos = 0;
+        // Received all file data?
+        if (data_bytes_received == recv_packet.file_size) {
+            break;
+        }
+        else {
+            data_bytes_received += HAIL_CONTENT_SIZE;
+        }
+    }
+
 
     // Need to free up 'results' and everything else
     freeaddrinfo(results);
     close(socketFD);
+
     free(FILE_NAME);
     free(packet);
     free(send_buffer);
