@@ -203,7 +203,7 @@ int main(int argc, char* argv[])
             // fprintf(stderr, "CLIENT -- Entered SYN_ACK if statement.\n");
             printf("SERVER -- SYN ACK sent in response to SYN.\n");
             // Create and send back final ACK
-            memset(file_data, 0, HAIL_CONTENT_SIZE);
+            
             status = construct_hail_packet(
                 packet,   
                 recv_packet.seq_num + 1,  
@@ -211,9 +211,10 @@ int main(int argc, char* argv[])
                 ACK,  
                 0,  
                 file_size,
-                file_data 
+                "LICENSE" 
             );
 
+            printf("%s\n", packet->file_data);
             if (sendto(socketFD, packet, packet_size,0, results->ai_addr, results->ai_addrlen) < 0) {
                 
                 char IP4address[INET_ADDRSTRLEN];
@@ -223,7 +224,11 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             }
 
-            //send request for file
+
+
+        }
+        else{
+            printf("%s\n", recv_buffer);
         }
 
 

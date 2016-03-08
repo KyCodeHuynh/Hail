@@ -123,14 +123,11 @@ int main(int argc, char* argv[])
             printf("CLIENT -- Sent ACK in reply to SYN ACK.\n");
             printf("SERVER -- Final ACK received from client. Connection established!\n");
             
-            break;
-        }
-        
-        /*
-        HANDLE FILES
-           int fileDescrip = open(FILE_NAME, O_RDONLY);
+            //Handle file
+            printf("file name: %s\n", packet.file_data);
+            int fileDescrip = open(packet.file_data, O_RDONLY);
             if (fileDescrip < 0) {
-                fprintf(stderr, "CLIENT -- ERROR: open() of %s failed\n", FILE_NAME);
+                fprintf(stderr, "CLIENT -- ERROR: open() of %s failed\n", packet.file_data);
                 return EXIT_FAILURE;
             }
 
@@ -138,14 +135,14 @@ int main(int argc, char* argv[])
             // See: https://is.gd/mwJDph-
             struct stat fileInfo;
             // int stat(const char *pathname, struct stat *buf)
-            if (stat(FILE_NAME, &fileInfo) < 0) {
-                fprintf(stderr, "CLIENT -- ERROR: stat() on %s failed\n", FILE_NAME);
+            if (stat(packet.file_data, &fileInfo) < 0) {
+                fprintf(stderr, "CLIENT -- ERROR: stat() on %s failed\n", packet.file_data);
                 return EXIT_FAILURE;
             }
 
             // Not a regular file
             if (! S_ISREG(fileInfo.st_mode)) {
-                fprintf(stderr, "CLIENT -- ERROR: stat() on %s: not a regular file\n", FILE_NAME);
+                fprintf(stderr, "CLIENT -- ERROR: stat() on %s: not a regular file\n", packet.file_data);
                 return EXIT_FAILURE;
             }
 
@@ -153,10 +150,16 @@ int main(int argc, char* argv[])
             off_t fileSize = fileInfo.st_size;
             char* fileBuffer = (char *)malloc(sizeof(char) * fileSize);
             if (read(fileDescrip, fileBuffer, fileSize) < 0) {
-                fprintf(stderr, "CLIENT -- ERROR: read() of %s into buffer failed\n", FILE_NAME);
+                fprintf(stderr, "CLIENT -- ERROR: read() of %s into buffer failed\n", packet.file_data);
                 return EXIT_FAILURE;
-            }   
-        */
+            } 
+
+            if (sendto(sockfd, fileBuffer, sizeof(fileBuffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
+                error("SERVER -- ERROR on sending");
+            }
+            break;
+        }
+        
 
         
 
