@@ -195,7 +195,7 @@ int main(int argc, char* argv[])
         size_t packets_done = 0;
         uint8_t i;
         for (i = bottom ; i != (top + 1) % MAX_SEQ_NUM; i = (i+1) % MAX_SEQ_NUM){
-            printf("SERVER -- IN for-loop for file-sending\n");
+            // printf("SERVER -- IN for-loop for file-sending\n");
             if (packets_sent >= packets_needed) {
                 fprintf(stderr, "SERVER -- packets_sent >= packets_needed!\n");
                 break;
@@ -213,6 +213,7 @@ int main(int argc, char* argv[])
 
                 printf("SERVER -- Sending packet %lu out of %zu, seq_num: %d\n", packets_sent+1, packets_needed, response_pkt.seq_num);
 
+                // TODO: Only send if no loss/corruption
                 if (sendto(sockfd, &response_pkt, sizeof(response_pkt), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
                     error("SERVER -- ERROR on sending\n");
                 }
@@ -223,7 +224,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        printf("SERVER -- OUT of for-loop for file-sending\n");
+        // printf("SERVER -- OUT of for-loop for file-sending\n");
 
         if (recvfrom(sockfd, recv_buffer, sizeof(recv_buffer), 0, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen) < 0) {
             error("SERVER -- ERROR: Receiving from client failed\n");
