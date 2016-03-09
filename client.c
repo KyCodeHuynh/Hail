@@ -288,10 +288,10 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             }
 
+        break;
+
         }
-        else{
-            printf("%s\n", recv_buffer);
-        }       
+         
     }
 
     // Loop until all file data has been transferred
@@ -300,9 +300,12 @@ int main(int argc, char* argv[])
     char* reorder_buffer = NULL;
     uint64_t data_bytes_received = 0;
     while (true) {
+
         struct sockaddr server_addr;
         socklen_t server_addr_len = sizeof(struct sockaddr);
         int bytes_received = 0;
+         hail_packet_t recv_packet;
+       
         bytes_received = recvfrom(
             socketFD,        // int sockfd; same socket for some connection
             recv_buffer,     // void* buf
@@ -317,27 +320,29 @@ int main(int argc, char* argv[])
         }
         else if (bytes_received < 0) {
             fprintf(stderr, "CLIENT -- ERROR: recvfrom() failed. Line %d\n", __LINE__);
-        };
+        }
+        
 
         // Again unpack, this time to grab data
-        hail_packet_t recv_packet;
+       
         memset(&recv_packet, 0, packet_size);
         if (unpack_hail_packet(recv_buffer, &recv_packet) < 0) {
             fprintf(stderr, "unpack_hail_packet() failed! [Line: %d]\n", __LINE__);
         }
 
+
+        printf("CLIENT -- received file packet seq_num: %d\n",  recv_packet.seq_num);
         // All good, so ACK the packet
-        status = construct_hail_packet(
+       
+        if (construct_hail_packet(
             &response_pkt, 
-            recv_packet.seq_num + 1,
+            recv_packet.seq_num,
             recv_packet.seq_num,
             ACK,
             0,
             recv_packet.file_size,
-            ""
-        );
-
-        if (status < 0) {
+            "why is this wrong"
+        ) < 0) {
             fprintf(stderr, "construct_hail_packet() failed! [Line: %d]\n", __LINE__);
         }
 
@@ -348,15 +353,17 @@ int main(int argc, char* argv[])
         else if (isYesEvent(PROB_LOSS)) {
             fprintf(stderr, "CLIENT -- Our ACK packet was lost in-transit.\n");
         }
-        else {
-            if (sendto(socketFD, packet, packet_size,0, results->ai_addr, results->ai_addrlen) < 0) {
-                char IP4address[INET_ADDRSTRLEN];
-                inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
-                fprintf(stderr, "CLIENT -- ERROR: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
 
-                return EXIT_FAILURE;
-            }
+        printf("CLIENT -- SENDING ACK for seq_num: %d\n", response_pkt.seq_num );
+        
+        if (sendto(socketFD, response_pkt, sizeof(response_pkt),0, results->ai_addr, results->ai_addrlen) < 0) {
+            char IP4address[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
+            fprintf(stderr, "CLIENT -- ERROR: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
+
+            return EXIT_FAILURE;
         }
+        
 
         // Create reordering buffer?
         if (! buffer_exists) {
@@ -372,15 +379,17 @@ int main(int argc, char* argv[])
 
         // Received all file data?
         if (data_bytes_received == recv_packet.file_size) {
+
             break;
         }
         else {
             data_bytes_received += HAIL_CONTENT_SIZE;
         }
+      
     }
 
     // Write final file to disk, creating it if it does not already exist
-    int final_file_fd = open(FILE_NAME, O_WRONLY | O_CREAT);
+    int final_file_fd = open(FILE_NAME, O_WRONLY);
     if (final_file_fd == -1) {
         fprintf(stderr, "CLIENT -- ERROR: Something went wrong with creating the result file on disk.\n");
     }
