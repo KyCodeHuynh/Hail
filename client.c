@@ -47,52 +47,43 @@ int main(int argc, char* argv[])
 
         return EXIT_FAILURE;
     }
+    else if (argc == 5 && (strncmp(argv[4], "-l", 2) == 0)) {
+        // -l and -c both require arguments
+        fprintf(stderr, "error: -l requires an argument in [0, 1]\n");
+        return EXIT_FAILURE;
+    }
+    else if (argc == 7 && (strncmp(argv[6], "-c", 2) == 0)) {
+        fprintf(stderr, "error: -c requires an argument in [0, 1]\n");
+        return EXIT_FAILURE;
+    }
     // Handle special options first, so that we can use them later
-    // TODO: Use getopt() to avoid this counting madness
-    // TODO: Define options booleans here
     else {
         // We're here, so enough options were passed in
         HAIL_SERVER = argv[1];
         HAIL_PORT   = argv[2];
 
-        // -l and -c both require arguments
-        // See: http://www.gnu.org/software/libc/manual/html_node/Using-Getopt.html#Using-Getopt
-        int option = -1;
-        while ((option = getopt(argc, argv, "l:c:")) != -1) {
-            switch (option) {
-                fprintf(stderr, "The option:\"%d\"\n", option);
-                case 'l':
-                    // optarg holds the value of the option argument
-                    // Break as we loop through all options anyway
-                    PROB_LOSS = atof(optarg);
-                    fprintf(stderr, "The probability of loss: %f\n", PROB_LOSS);
-                    break;
+        double prob_loss = atof(argv[5]);
+        if (prob_loss < 0 || 1 < prob_loss) {
+            fprintf(stderr, "error: -l requires an argument in [0, 1]\n");
+            return EXIT_FAILURE;
+        }
+        else {
+            PROB_LOSS = prob_loss;
+        }
 
-                case 'c':
-                    // For conversion of ASCII to float, see: http://www.cplusplus.com/reference/cstdlib/atof/
-                    PROB_CORRUPT = atof(optarg);
-                    fprintf(stderr, "The probability of corruption: %f\n", PROB_CORRUPT);
-                    break;
-
-                case '?':
-                    if (optopt == 'l' || optopt == 'c') {
-                        fprintf(stderr, "Option -%c requires an argument in [0,1]\n", optopt);
-                    }
-                    else if (isprint(optopt)) {
-                        fprintf(stderr, "-%c is not a recognized option\n", optopt);
-                    }
-                    return EXIT_FAILURE;
-
-                default:
-                    fprintf(stderr, "CLIENT -- ERROR: Parsing command-line arguments fault\n");
-                    return EXIT_FAILURE;
-            }
+        double prob_corrupt = atof(argv[7]);
+        if (prob_corrupt < 0 || 1 < prob_corrupt) {
+            fprintf(stderr, "error: -c requires an argument in [0, 1]\n");
+            return EXIT_FAILURE;
+        }
+        else {
+            PROB_CORRUPT = prob_corrupt;
         }
     }
     
     fprintf(stderr, "The probability of loss: %f\n", PROB_LOSS);
     fprintf(stderr, "The probability of corruption: %f\n", PROB_CORRUPT);
-    
+
     unsigned int filename_length = fmin(255, strlen(argv[3]));
     char* FILE_NAME = (char *)malloc(256 * sizeof(char));
     memcpy(FILE_NAME, argv[3], filename_length);
