@@ -15,6 +15,13 @@
 
 #include "hail.h"
 
+typedef enum window_status {
+    NOT_SENT,
+    SENT,
+    ACK,
+    DONE
+} window_status_t;
+
 void error(char *msg)
 {
     perror(msg);
@@ -27,11 +34,10 @@ int main(int argc, char* argv[])
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
     char dgram[5000];             // Recv buffer
-    uint8_t win_fst;
-    uint8_t win_lst;
     const size_t packet_size = sizeof(hail_packet_t);
 
-    if (argc < 2) {
+
+    if (argc < 3) {
         printf(
             "\nUsage: \t%s portnumber [OPTIONS]\n\n"
             "Begin receiving messages on portnumber.\n\n"
@@ -85,7 +91,9 @@ int main(int argc, char* argv[])
     memset(&packet, 0, packet_size);
     memset(&response_pkt, 0, packet_size);
 
+
     // Make sure server is always runner with infinite while loopclilen
+    //handle handshake
     while (true) {
         // printf("SERVER: Got into while loop\n");
     	// Receive message from client
@@ -120,52 +128,113 @@ int main(int argc, char* argv[])
 
         }
         else if (packet.control == ACK){
+            
             printf("CLIENT -- Sent ACK in reply to SYN ACK.\n");
             printf("SERVER -- Final ACK received from client. Connection established!\n");
             
-            //Handle file
-            printf("file name: %s\n", packet.file_data);
-            int fileDescrip = open(packet.file_data, O_RDONLY);
-            if (fileDescrip < 0) {
-                fprintf(stderr, "CLIENT -- ERROR: open() of %s failed\n", packet.file_data);
-                return EXIT_FAILURE;
-            }
-
-            // CERT recommends against fseek() and ftell() for determining file size
-            // See: https://is.gd/mwJDph-
-            struct stat fileInfo;
-            // int stat(const char *pathname, struct stat *buf)
-            if (stat(packet.file_data, &fileInfo) < 0) {
-                fprintf(stderr, "CLIENT -- ERROR: stat() on %s failed\n", packet.file_data);
-                return EXIT_FAILURE;
-            }
-
-            // Not a regular file
-            if (! S_ISREG(fileInfo.st_mode)) {
-                fprintf(stderr, "CLIENT -- ERROR: stat() on %s: not a regular file\n", packet.file_data);
-                return EXIT_FAILURE;
-            }
-
-            // Read file into buffer
-            off_t fileSize = fileInfo.st_size;
-            char* fileBuffer = (char *)malloc(sizeof(char) * fileSize);
-            if (read(fileDescrip, fileBuffer, fileSize) < 0) {
-                fprintf(stderr, "CLIENT -- ERROR: read() of %s into buffer failed\n", packet.file_data);
-                return EXIT_FAILURE;
-            } 
-
-            if (sendto(sockfd, fileBuffer, sizeof(fileBuffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
-                error("SERVER -- ERROR on sending");
-            }
             break;
         }
-        
-
-        
-
-        
+               
     } 
 
+    // We now have a filename to use. open() sets read position at 0 at first.
+    int file_fd = fopen(packet.file_data, O_RDONLY);
+    struct stat fileInfo;
+    // int stat(const char *pathname, struct stat *buf)
+    if (stat(packet.file_data, &fileInfo) < 0) {
+        fprintf(stderr, "CLIENT -- ERROR: stat() on %s failed\n", packet.file_data);
+        return EXIT_FAILURE;
+    }
+    off_t fileSize = fileInfo.st_size;
+
+    const WINDOW_LIMIT_BYTES = argv[2];
+    hail_packet_t receive_pkt;
+    hail_packet_t response_pkt;
+    char recv_buffer[HAIL_PACKET_SIZE];
+ 
+    memset(receive_pkt, 0, PACKET_SIZE);
+    memset(response_pkt, 0, PACKET_SIZE);
+    memset(recv_buffer, 0, HAIL_PACKET_SIZE);
+  
+
+    // The structure for tracking what we've sent so far, 
+    // a simple buffer of previously sent packets.
+    // Send up to window limit size. Use calloc() to zero-initialize allocated memory.
+    size_t WINDOW_SIZE = floor(WINDOW_LIMIT_BYTES / HAIL_PACKET_SIZE);
+    size_t MAX_SEQ_NUM = WINDOW_SIZE*2
+    window_status_t WINDOW[MAX_SEQ_NUM] = {NOT_SENT};
+    uint8_t bottom = 0;
+    uint8_t top = WINDOW_SIZE-1;
+
+    int file_offset = 0;
+    char packets_needed = ceil(fileSize/HAIL_PACKET_SIZE);
+    char packets_sent = 0;
+
+    char seq_num = 0; // 0-255, tracked externally
+    char ack_num = 1;
+    hail_control_code_t control = OK; 
+    char version = 0;
+    uint64_t file_size = fileSize;
+    char file_data[HAIL_CONTENT_SIZE];
+
+    //handle file transfer
+    while(true){
+
+        //loop through window and send all packets not sent
+        int i;
+        for(i = bottom ; i != (top + 1)%MAX_SEQ_NUM; i = (i+1)%MAX_SEQ_NUM){
+            
+            if(WINDOW[i] == NOT_SENT){
+                
+                lseek(file_fd, offset, SEEK_CUR);
+                read(file_fd, &file_data, HAIL_CONTENT_SIZE);
+                construct_hail_packet(response_pkt, seq_num, ack_num, control, version, file_size, file_data);
+
+                printf("SERVER -- Sending packet %d out of %d, seq_num: %d\n", packets_sent+1, packets_needed, response_pkt.seq_num);
+
+                if (sendto(sockfd, response_pkt, sizeof(response_buffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
+                    error("SERVER -- ERROR on sending");
+                }
+
+                offset += HAIL_CONTENT_SIZE;
+                packet_sent++;
+            }
+
+            //if all entries are DONE
+            
+        }
+
+
+
+        if (recvfrom(sockfd, recv_buffer, sizeof(recv_buffer), 0, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen) < 0) {
+            error("SERVER -- ERROR: Receiving from client failed");
+        }
+
+        unpack_hail_packet(&recv_buffer, &receive_pkt);
+
+        if(receive_pkt.control == ACK){
+            printf("SERVER -- received ACK for packet seq_num %d", receive_pkt.seq_num);
+            WINDOW[receive_pkt.seq_num] = ACK;
+        }
+
+        if(WINDOW[bottom] == ACK){
+            bottom = (bottom + 1)% WINDOW_SIZE;
+            top = (top + 1)%WINDOW_SIZE;
+            
+            if(packets_sent >= packets_needed){
+                WINDOW[top] = DONE;
+            }
+            else{
+                WINDOW[top] = NOT_SENT;
+            }
+
+
+            
+
+        }
+
+    }
+    
     free(response_buffer);
     //free(reorder_buffer);
     return EXIT_SUCCESS;
