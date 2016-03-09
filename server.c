@@ -41,13 +41,11 @@ int main(int argc, char* argv[])
 
     if (argc < 3) {
         printf(
-            "\nUsage: \t%s portnumber [OPTIONS]\n\n"
-            "Begin receiving messages on portnumber.\n\n"
+            "\nUsage: \t%s portnumber windowsize [OPTIONS]\n\n"
+            "Begin receiving messages on portnumber using windowsize (in bytes).\n\n"
             "Options:\n"
-            "-w W, --window -W  Change flight window size to 1 <= W packets\n"
             "-l L, --loss L     Simulate message loss with probability L in [0,1]\n"
-            "-c C, --corrupt C  Simulate message corruption with probability C in [0,1]\n"
-            "-s,   --silent     Run silently without activity output to stdout or stderr\n\n", 
+            "-c C, --corrupt C  Simulate message corruption with probability C in [0,1]\n",
             argv[0]
         );        
 
@@ -166,8 +164,8 @@ int main(int argc, char* argv[])
     // a simple buffer of previously sent packets.
     // Send up to window limit size. Use calloc() to zero-initialize allocated memory.
     size_t WINDOW_SIZE = floor(WINDOW_LIMIT_BYTES / HAIL_PACKET_SIZE);
-    printf("PACKET_SIZE: %d\n", HAIL_PACKET_SIZE);
-    printf("WINDOW_SIZE: %d\n", WINDOW_SIZE);
+    printf("PACKET_SIZE (in bytes): %d\n", HAIL_PACKET_SIZE);
+    printf("WINDOW_SIZE (in packets): %d\n", WINDOW_SIZE);
     size_t MAX_SEQ_NUM = WINDOW_SIZE*2;
     window_status_t WINDOW[MAX_SEQ_NUM];
     memset(WINDOW, NOT_SENT, sizeof(window_status_t)*MAX_SEQ_NUM);
@@ -186,32 +184,26 @@ int main(int argc, char* argv[])
     char file_data[HAIL_CONTENT_SIZE];
 
     //handle file transfer
-    
-    while(true){
-        size_t packets_done = 0;
+    while (true) {
         //loop through window and send all packets not sent
+        size_t packets_done = 0;
         uint8_t i;
-
-        
-
-        for(i = bottom ; i != (top + 1)%MAX_SEQ_NUM; i = (i+1)%MAX_SEQ_NUM){
-            printf("IN for loop\n");
-            
-            if(packets_sent >= packets_needed){
+        for (i = bottom ; i != (top + 1) % MAX_SEQ_NUM; i = (i+1) % MAX_SEQ_NUM){
+            printf("SERVER -- IN for-loop for file-sending\n");
+            if (packets_sent >= packets_needed) {
                 break;
             }
             //if all entries are DONE
-            if(WINDOW[i] == DONE){
+            if (WINDOW[i] == DONE) {
                 packets_done++;
             }
 
-            if(packets_done == WINDOW_SIZE){
+            if (packets_done == WINDOW_SIZE) {
                 //DONE. BREAK?
                 break;
             }
 
-            if(WINDOW[i] == NOT_SENT){
-                
+            if (WINDOW[i] == NOT_SENT) {
                 lseek(file_fd, file_offset, SEEK_CUR);
                 read(file_fd, file_data, HAIL_CONTENT_SIZE);
                 construct_hail_packet(&response_pkt, seq_num, ack_num, control, version, file_size, file_data);
@@ -219,48 +211,40 @@ int main(int argc, char* argv[])
                 printf("SERVER -- Sending packet %d out of %d, seq_num: %d\n", packets_sent+1, packets_needed, response_pkt.seq_num);
 
                 if (sendto(sockfd, &response_pkt, sizeof(response_pkt), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
-                    error("SERVER -- ERROR on sending");
+                    error("SERVER -- ERROR on sending\n");
                 }
 
                 file_offset += HAIL_CONTENT_SIZE;
                 packets_sent++;
-                seq_num = (seq_num+1)%(MAX_SEQ_NUM);
-                
+                seq_num = (seq_num+1) % (MAX_SEQ_NUM);
             }
-       
         }
 
-        printf("OUT of for loop\n");
+        printf("SERVER -- OUT of for-loop for file-sending\n");
 
         if (recvfrom(sockfd, recv_buffer, sizeof(recv_buffer), 0, (struct sockaddr*) &cli_addr, (socklen_t*) &clilen) < 0) {
-            error("SERVER -- ERROR: Receiving from client failed");
+            error("SERVER -- ERROR: Receiving from client failed\n");
         }
 
-
         unpack_hail_packet(recv_buffer, &receive_pkt);
-        printf("this is ack data: %s\n", receive_pkt.file_data);
+        printf("SERVER -- Data in ACK packet : %s\n", receive_pkt.file_data);
 
-        if((receive_pkt.control) == ACK){
-            printf("SERVER -- received ACK for packet seq_num %d", receive_pkt.seq_num);
+        if ((receive_pkt.control) == ACK) {
+            printf("SERVER -- received ACK for packet seq_num %d\n", receive_pkt.seq_num);
             WINDOW[receive_pkt.seq_num] = ACKN;
         }
         
-
-        if(WINDOW[bottom] == ACKN){
+        if (WINDOW[bottom] == ACKN) {
+            bottom = (bottom + 1) % WINDOW_SIZE;
+            top = (top + 1) % WINDOW_SIZE;
             
-            bottom = (bottom + 1)% WINDOW_SIZE;
-            top = (top + 1)%WINDOW_SIZE;
-            
-            if(packets_sent >= packets_needed){
+            if (packets_sent >= packets_needed) {
                 WINDOW[top] = DONE;
             }
-            else{
+            else {
                 WINDOW[top] = NOT_SENT;
             }
-            
-
         }
-
     }
 
     
