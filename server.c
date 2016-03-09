@@ -227,7 +227,7 @@ int main(int argc, char* argv[])
         }
 
         unpack_hail_packet(recv_buffer, &receive_pkt);
-        printf("SERVER -- Data in ACK packet : %s\n", receive_pkt.file_data);
+        printf("SERVER -- Data in ACK packet: %s\n", receive_pkt.file_data);
 
         if ((receive_pkt.control) == ACK) {
             printf("SERVER -- received ACK for packet seq_num %d\n", receive_pkt.seq_num);

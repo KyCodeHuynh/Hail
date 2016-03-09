@@ -346,24 +346,25 @@ int main(int argc, char* argv[])
             fprintf(stderr, "construct_hail_packet() failed! [Line: %d]\n", __LINE__);
         }
 
-        // Did we have corruption or loss? We assume only one or the other can occur
+        // Did we have corruption or loss? We assume only one or the other can occur. 
+        // If corrupt or loss, no ACK sent this time around
         if (isYesEvent(PROB_CORRUPT)) {
             fprintf(stderr, "CLIENT -- Our ACK packet was corrupted in-transit.\n");
         }
         else if (isYesEvent(PROB_LOSS)) {
             fprintf(stderr, "CLIENT -- Our ACK packet was lost in-transit.\n");
         }
+        else {
+            printf("CLIENT -- SENDING ACK for seq_num: %d\n", response_pkt.seq_num );
+            
+            if (sendto(socketFD, &response_pkt, sizeof(response_pkt),0, results->ai_addr, results->ai_addrlen) < 0) {
+                char IP4address[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
+                fprintf(stderr, "CLIENT -- ERROR: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
 
-        printf("CLIENT -- SENDING ACK for seq_num: %d\n", response_pkt.seq_num );
-        
-        if (sendto(socketFD, &response_pkt, sizeof(response_pkt),0, results->ai_addr, results->ai_addrlen) < 0) {
-            char IP4address[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
-            fprintf(stderr, "CLIENT -- ERROR: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
-
-            return EXIT_FAILURE;
+                return EXIT_FAILURE;
+            }
         }
-        
 
         // Create reordering buffer?
         if (! buffer_exists) {
@@ -379,13 +380,12 @@ int main(int argc, char* argv[])
 
         // Received all file data?
         if (data_bytes_received == recv_packet.file_size) {
-
+            fprintf(stderr, "CLIENT -- All file data received!\n");
             break;
         }
         else {
             data_bytes_received += HAIL_CONTENT_SIZE;
         }
-      
     }
 
     fprintf(stderr, "CLIENT -- DEBUG: Final file contents: %s\n", reorder_buffer);

@@ -3,7 +3,7 @@
 # 8 February 2016
 
 CC = gcc
-FLAGS = -std=gnu99 -Wall -Wextra
+FLAGS = -std=gnu99 -Wall -Wextra -ggdb
 # -lm is the math library
 # See: https://stackoverflow.com/questions/11336477/gcc-will-not-properly-include-math-h
 LIBRARIES = -lm
