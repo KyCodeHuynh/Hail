@@ -4,26 +4,54 @@
 #include <fcntl.h>          // open()
 #include <math.h>
 #include <netdb.h>          // getaddrinfo()
-// #include <netinet/in.h>     // struct sockaddr_in and struct in_addr
 #include <stdbool.h>        // 'true' and 'false' literals
 #include <stdio.h>          // fprintf(), etc.
-#include <stdlib.h>         // malloc(), calloc(), etc.
+#include <stdlib.h>         // malloc(), calloc(), srand(), rand(), etc.
 #include <string.h>         // strchr(), etc.
 #include <sys/socket.h>     // Sockets API
 #include <sys/stat.h>       // stat()
 #include <sys/types.h>      // Standard types
+#include <time.h>           // time()
 #include <unistd.h>         // Standard system calls
+// #include <netinet/in.h>     // struct sockaddr_in and struct in_addr
 
 #include "hail.h"
 
-// Uncomment these header-includes if we need to 
-// build and work with the raw networking structs
+// Helper: given a probability prob in [0,1], gives true with probability prob
+// and false with probability 1 - prob
+bool isYesEvent(double prob) {
+    if (prob < 0 || 1 < prob) {
+        fprintf(stderr, "CLIENT -- ERROR: Invalid YesEvent probability\n");
+    }
+    // 0 and 1 are fast cases
+    else if (prob == 0) {
+        return false;
+    }
+    else if (prob == 1) {
+        return true;
+    }
 
+    // Number between 0 and 100
+    int num = rand() % 101;
+
+    // Example: prob is 42.5, so 42.5 slots out of 100 are "true" ones
+    if (num < (prob * 100)) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+// argc is the argument count, the length of argv[]
+// argv is the argument variable array
+// argc is at least 1, as argv[0] is the program name
 int main(int argc, char* argv[]) 
 {
-    // argc is the argument count, the length of argv[]
-    // argv is the argument variable array
-    // argc is at least 1, as argv[0] is the program name
+    // Seed the (not cryptographically secure) PRNG
+    // See: http://www.cplusplus.com/reference/cstdlib/srand/
+    // See: http://www.cplusplus.com/reference/ctime/ctime/
+    srand(time(NULL));
 
     // Avoid magic numbers. TODO: Do these need atoi() and htons()?
     const char* HAIL_SERVER = {0};
