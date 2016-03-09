@@ -288,8 +288,6 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             }
 
-
-
         }
         else{
             printf("%s\n", recv_buffer);
@@ -297,6 +295,7 @@ int main(int argc, char* argv[])
     }
 
     // Loop until all file data has been transferred
+    hail_packet_t response_pkt;
     bool buffer_exists = false;
     char* reorder_buffer = NULL;
     uint64_t data_bytes_received = 0;
@@ -312,13 +311,13 @@ int main(int argc, char* argv[])
             &server_addr,    // Filled by recvfrom(), as OS finds out source address
             &server_addr_len // from headers in packets
         );
-
+ 
         if (bytes_received == 0) {
             fprintf(stderr, "CLIENT -- No bytes received. Assuming connection closed.\n");
         }
         else if (bytes_received < 0) {
             fprintf(stderr, "CLIENT -- ERROR: recvfrom() failed. Line %d\n", __LINE__);
-        }
+        };
 
         // Again unpack, this time to grab data
         hail_packet_t recv_packet;
@@ -326,6 +325,39 @@ int main(int argc, char* argv[])
         if (unpack_hail_packet(recv_buffer, &recv_packet) < 0) {
             fprintf(stderr, "unpack_hail_packet() failed! [Line: %d]\n", __LINE__);
         }
+
+        // All good, so ACK the packet
+        status = construct_hail_packet(
+            &response_pkt, 
+            recv_packet.seq_num + 1,
+            recv_packet.seq_num,
+            ACK,
+            0,
+            recv_packet.file_size,
+            ""
+        );
+
+        if (status < 0) {
+            fprintf(stderr, "construct_hail_packet() failed! [Line: %d]\n", __LINE__);
+        }
+
+        // Did we have corruption or loss? We assume only one or the other can occur
+        if (isYesEvent(PROB_CORRUPT)) {
+            fprintf(stderr, "CLIENT -- Our ACK packet was corrupted in-transit.\n");
+        }
+        else if (isYesEvent(PROB_LOSS)) {
+            fprintf(stderr, "CLIENT -- Our ACK packet was lost in-transit.\n");
+        }
+        else {
+            if (sendto(socketFD, packet, packet_size,0, results->ai_addr, results->ai_addrlen) < 0) {
+                char IP4address[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
+                fprintf(stderr, "CLIENT -- ERROR: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
+
+                return EXIT_FAILURE;
+            }
+        }
+
 
         // Create reordering buffer?
         if (! buffer_exists) {
