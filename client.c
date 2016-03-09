@@ -358,7 +358,6 @@ int main(int argc, char* argv[])
             }
         }
 
-
         // Create reordering buffer?
         if (! buffer_exists) {
             uint64_t file_size = recv_packet.file_size;
@@ -380,6 +379,18 @@ int main(int argc, char* argv[])
         }
     }
 
+    // Write final file to disk, creating it if it does not already exist
+    int final_file_fd = open(FILE_NAME, O_WRONLY | O_CREAT);
+    if (final_file_fd == -1) {
+        fprintf(stderr, "CLIENT -- ERROR: Something went wrong with creating the result file on disk.\n");
+    }
+
+    size_t num_slots = ceil(file_size / HAIL_CONTENT_SIZE);
+    ssize_t bytes_written = write(final_file_fd, reorder_buffer, num_slots * HAIL_CONTENT_SIZE);
+
+    if (bytes_written == -1) {
+        fprintf(stderr, "CLIENT -- ERROR: Something went wrong with writing the result file to disk.\n");
+    }
 
     // Need to free up 'results' and everything else
     freeaddrinfo(results);
