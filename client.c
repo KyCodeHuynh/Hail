@@ -333,6 +333,8 @@ int main(int argc, char* argv[])
 
         printf("CLIENT -- received file packet seq_num: %d\n",  recv_packet.seq_num);
         // All good, so ACK the packet
+
+        // fprintf(stderr, "The file data we got: %s\n", recv_packet.file_data);
        
         if (construct_hail_packet(
             &response_pkt, 
@@ -379,13 +381,13 @@ int main(int argc, char* argv[])
         memcpy(&(reorder_buffer[(size_t)recv_packet.seq_num]), recv_packet.file_data, HAIL_CONTENT_SIZE);
 
         // Received all file data?
-        if (data_bytes_received == recv_packet.file_size) {
+        fprintf(stderr, "BEFORE: Data bytes received: %llu\nExpected file size: %llu\n", data_bytes_received, recv_packet.file_size);
+        if ((data_bytes_received += HAIL_CONTENT_SIZE) >= recv_packet.file_size) {
             fprintf(stderr, "CLIENT -- All file data received!\n");
             break;
         }
-        else {
-            data_bytes_received += HAIL_CONTENT_SIZE;
-        }
+
+        fprintf(stderr, "AFTER: Data bytes received: %llu\nExpected file size: %llu\n", data_bytes_received, recv_packet.file_size);
     }
 
     fprintf(stderr, "CLIENT -- DEBUG: Final file contents: %s\n", reorder_buffer);
@@ -403,6 +405,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "CLIENT -- ERROR: Something went wrong with writing the result file to disk.\n");
     }
 
+    fprintf(stderr, "CLIENT -- I'm outie!\n");
     // Need to free up 'results' and everything else
     freeaddrinfo(results);
     close(socketFD);

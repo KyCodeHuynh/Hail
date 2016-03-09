@@ -1,18 +1,14 @@
-# Hail and MiniFTP
+# Hail 
 
 Hail is a transport-layer protocol for reliable data transfer, implemented atop
 UDP.
 
-MiniFTP is a simple FTP-like protocol. We implement the client -> server
-sending half of it.
 
 - [Hail Protocol Design](#hail-protocol-design)
     - [Segment Format](#segment-format)
     - [Connection Establishment](#connection-establishment)
     - [Chunking into Packets](#chunking-into-packets)
     - [Closing the Connection](#closing-the-connection)
-- [MiniFTP Protocol Design](#miniftp-protocol-design)
-    - [File Format](#file-format)
 
 
 ## Hail Protocol Design
@@ -229,46 +225,14 @@ As for the sender’s window, we just increment modulo the wraparound limit:
 
 ### Closing the Connection
 
-Either the sender or the receiver may at any time close the
-Hail connection by sending a packet with the `CLOSE` control code set.
-
-*TODO*: What error do we give back if the client tries to send more but the server closed the connection?
-
-*TODO*: What error do we give back if the server tries to keep responding, but the client closed the connection?
+The server 
 
 
-## MiniFTP Protocol Design 
-
-MiniFTP organizes the 500 bytes of data sent within a Hail packet.
 
 
-### File Format
 
-The very first packet (with control code `START`, meaning "start file")
-reserves the first 255 bytes for the file name. This matches 
-[standard file-system maximums](http://stackoverflow.com/questions/6571435/limit-on-file-name-length-in-bash):
 
-    // Within the 500 bytes of data carried by a Hail packet
-    [ File name ] 255 bytes
-    [ File data ] 245 bytes
 
-For every packet after that, 500 bytes of data are sent: 
-
-    [ File data ] 500 bytes
-
-In both cases, we again disable automatic padding.
-
-Because the sequence number is constantly wrapping around for larger 
-files, we cannot use it as a reliable guidepost for the end of a file
-by itself. Instead, we must keep track of runs of sequence numbers, 
-as explained in the previous "Sequence Number Wraparound" section.
-
-The last packet of the file has the `END` control code, mirroring our 
-`start`. Our file transfer is complete when: 
-
-1. We have received the `END` packet
-2. The size of the contents held by the reordering buffer is equal to the size
-   of the originally sent file.
 
 
 
