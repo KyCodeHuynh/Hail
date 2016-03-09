@@ -341,7 +341,7 @@ int main(int argc, char* argv[])
             ACK,
             0,
             recv_packet.file_size,
-            "why is this wrong"
+            "ACK packet" 
         ) < 0) {
             fprintf(stderr, "construct_hail_packet() failed! [Line: %d]\n", __LINE__);
         }
@@ -356,7 +356,7 @@ int main(int argc, char* argv[])
 
         printf("CLIENT -- SENDING ACK for seq_num: %d\n", response_pkt.seq_num );
         
-        if (sendto(socketFD, response_pkt, sizeof(response_pkt),0, results->ai_addr, results->ai_addrlen) < 0) {
+        if (sendto(socketFD, &response_pkt, sizeof(response_pkt),0, results->ai_addr, results->ai_addrlen) < 0) {
             char IP4address[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
             fprintf(stderr, "CLIENT -- ERROR: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
@@ -387,6 +387,8 @@ int main(int argc, char* argv[])
         }
       
     }
+
+    fprintf(stderr, "CLIENT -- DEBUG: Final file contents: %s\n", reorder_buffer);
 
     // Write final file to disk, creating it if it does not already exist
     int final_file_fd = open(FILE_NAME, O_WRONLY);
