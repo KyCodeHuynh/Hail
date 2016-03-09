@@ -1,4 +1,5 @@
 #include <arpa/inet.h>      // struct in_addr, inet_ntop(), etc.
+#include <ctype.h>
 #include <errno.h>          // Standard error codes 
 #include <fcntl.h>          // open()
 #include <math.h>
@@ -27,18 +28,20 @@ int main(int argc, char* argv[])
     // Avoid magic numbers. TODO: Do these need atoi() and htons()?
     const char* HAIL_SERVER = {0};
     const char* HAIL_PORT   = {0};
+    double PROB_LOSS = 0; 
+    double PROB_CORRUPT = 0;
 
     // Need at least 'hostname port filename'
     // For formatting multi-line literal strings,
     // see: http://stackoverflow.com/questions/1135841/c-multiline-string-literal
     if (argc < 4) {
+
         printf(
             "\nUsage: \t%s hostname portnumber filename [OPTIONS]\n\n"
             "Send a message another endpoint using the Hail protocol.\n\n"
             "Options:\n"
-            "-l L, --loss L     Simulate message loss with probability L in [0,1]\n"
-            "-c C, --corrupt C  Simulate message corruption with probability C in [0,1]\n"
-            "-s,   --silent     Run silently without activity output to stdout or stderr\n\n", 
+            "-l L,  Simulate message loss with probability L in [0,1]\n"
+            "-c C,  Simulate message corruption with probability C in [0,1]\n",
             argv[0]
         );
 
@@ -47,15 +50,49 @@ int main(int argc, char* argv[])
     // Handle special options first, so that we can use them later
     // TODO: Use getopt() to avoid this counting madness
     // TODO: Define options booleans here
-    else if (argc == 7) {
-        printf("Options not yet implemented!\n");
-        return EXIT_FAILURE;
+    else {
+        // We're here, so enough options were passed in
+        HAIL_SERVER = argv[1];
+        HAIL_PORT   = argv[2];
+
+        // -l and -c both require arguments
+        // See: http://www.gnu.org/software/libc/manual/html_node/Using-Getopt.html#Using-Getopt
+        int option = -1;
+        while ((option = getopt(argc, argv, "l:c:")) != -1) {
+            switch (option) {
+                fprintf(stderr, "The option:\"%d\"\n", option);
+                case 'l':
+                    // optarg holds the value of the option argument
+                    // Break as we loop through all options anyway
+                    PROB_LOSS = atof(optarg);
+                    fprintf(stderr, "The probability of loss: %f\n", PROB_LOSS);
+                    break;
+
+                case 'c':
+                    // For conversion of ASCII to float, see: http://www.cplusplus.com/reference/cstdlib/atof/
+                    PROB_CORRUPT = atof(optarg);
+                    fprintf(stderr, "The probability of corruption: %f\n", PROB_CORRUPT);
+                    break;
+
+                case '?':
+                    if (optopt == 'l' || optopt == 'c') {
+                        fprintf(stderr, "Option -%c requires an argument in [0,1]\n", optopt);
+                    }
+                    else if (isprint(optopt)) {
+                        fprintf(stderr, "-%c is not a recognized option\n", optopt);
+                    }
+                    return EXIT_FAILURE;
+
+                default:
+                    fprintf(stderr, "CLIENT -- ERROR: Parsing command-line arguments fault\n");
+                    return EXIT_FAILURE;
+            }
+        }
     }
-
-    // We're here, so enough options were passed in
-    HAIL_SERVER = argv[1];
-    HAIL_PORT   = argv[2];
-
+    
+    fprintf(stderr, "The probability of loss: %f\n", PROB_LOSS);
+    fprintf(stderr, "The probability of corruption: %f\n", PROB_CORRUPT);
+    
     unsigned int filename_length = fmin(255, strlen(argv[3]));
     char* FILE_NAME = (char *)malloc(256 * sizeof(char));
     memcpy(FILE_NAME, argv[3], filename_length);
