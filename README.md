@@ -2,14 +2,12 @@
 Stella Chung   (SID 004277565)
 Ky-Cuong Huynh (SID 204269084)
 
+Stella handled `server.c` and Ky-Cuong hanled `client.c`. All other work was
+split equally.
+
 Hail is a transport-layer protocol for reliable data transfer, implemented atop
 UDP.
 
-- [Hail Protocol Design](#hail-protocol-design)
-    - [Segment Format](#segment-format)
-    - [Connection Establishment](#connection-establishment)
-    - [Chunking into Packets](#chunking-into-packets)
-    - [Closing the Connection](#closing-the-connection)
 
 ## Hail Protocol Design
 
@@ -38,53 +36,6 @@ A Hail packet has the following structure:
     [ Hail version            ]  1 byte
     [ File size               ]  8 bytes 
     [ File data               ]  500 bytes
-
-The total size of any Hail network packet is 512 bytes.
-Having a power-of-2 size allows for easy alignment in memory.
-There is no padding between fields or before/after the packet.
-While the above is aligned on systems with a 4-byte (32-bit) word-size, 
-it is not aligned for systems with a 8-byte (64-bit) word-size. 
-To [prevent automatic padding](http://stackoverflow.com/questions/4306186/structure-padding-and-structure-packing), we specify that the struct be 
-"packed" instead (see the `hail.h` for details).
-
-An explanation of the field design decisions:
-
-* Sequence number: this is the most-accessed field and so placed first. 
-  It identifies the order of Hail packets as originally sent. It wraps 
-  around upon hitting 255, which gives an internal limit of 256 * 500 bytes
-  == 128 MB on file size before this edge case is encountered and handled.
-
-* Acknowledgement number: a receiver echoes a sequence number as its
-  acknowledgement. A sender knows to retransmit a particular packet upon not
-  seeing its echoed sequence number after some time-out interval.
-
-* Control code: our control codes mark a packet as being internal to the
-  protocol's functioning. They carry no data, and their functions are explained
-  in the relevant sections. Up to 256 such control codes can exist, providing
-  for the standard's extensibility.
-
-    * OK
-    * SYN
-    * SYN ACK
-    * ACK 
-    * CLOSE
-
-* Hail version: designed for graceful backwards compatibility handling, 
-  the version (from 0 to 255) lets hosts decide what level of features are
-  available. As Hail is still in an alpha stage, the version is kept at 0 
-  for now.
-
-* File size: this is simply an unsigned integer, 8 bytes in size to match the
-  size limit of 2 EiB (exbibytes, 2^64 bits, or approximately 2.3 exabytes for
-  those who prefer base-10) for individual files on most operating systems
-
-* File data: these are the contents of a file transported by the Hail packet.
-  As these are simply raw bytes, applications can apply their own higher-level 
-  logic 
-
-Note that we assume octet bytes, i.e., each is 8 bits in size. When sent, this
-struct is packed into a buffer (marshalling/serialized) and unpacked
-(unmarshalled/deserialized) at the destination.
 
 
 ### Connection Establishment 
@@ -163,49 +114,6 @@ So how can we tell if we are getting packets from the first 0-255 or the next 0-
 one with number 127, and other with number 32, but from different runs? 
 However, the finite flight/send window prevents this ambiguous overlap of ranges.
 
-It limits what could possibly be in-flight at the time. For example, here’s the
-edge case just before we wrap around:
-
-    250 251 252 [ 253 254 255 ]
-
-Then, upon ACK of 253:
-
-    251 252 253 [ 254 255 0 ]
-
-So we know that anything 254-255 must be in the previous run of sequence numbers. And if we slide our window forward a bit a more:
-
-    [ 255 0 1 ] 2 3 4
-
-Then now 255 must be in our previous run, and 0-1 in our next run, because we only have 3 packets in-flight at most at any time (if that were our window size).
-
-So for the next run, we need to modify how we index into the reordering buffer.
-Instead of reorder_buffer[seq_num], we have:
-
-    reorder_buffer[(numRun * 256) + seq_num]
-
-This in fact generalizes. We initialize numRun to 0, and so for our first run we
-have `reorder_nuffer[(0 * 256) + 0 thru 255]`, giving us the same indices as
-before.
-
-But upon wraparound, we'll have:
-
-    reorder_buffer[(1 * 256) + 0 thru 255]
-
-So our first index would be `reorder_buffer[256 + 0]`, which slots the first
-packet of the next run just after all of the last run, which is exactly what we
-wanted.
-
-However, we have yet to handle the case where our window is still sliding over between the two runs.
-
-During this straddling period, we cannot simply use the above indexing formula,
-or else we’d do something like `reorder_buffer[(1 * 256) + 255]` for the window:
-
-    [ 255 0 1 ] 2 3
-
-(Actually, I think this is the only corner case, assuming we don’t increment numRun until after encountering zero, which means 254 won’t run into this)
-
-That would cause us to place the last packet’s contentes of the preceding run into the area reserved for the contents of the next run of packets. This is in fact the only special case. We can check for this. We use the first index formula if the left-edge of receive window is `SEQ_NUM_MAX` (255 here).
-
 
 #### Sender-side Tracking
 
@@ -275,9 +183,3 @@ time, and to coordinate which portion was written. Eventually, after careful
 diagramming and research, we realized that `lseek()` would come to the rescue.
 This allowed us to achieve streaming reads and writes on both server and client
 (respectively).
-
-
-## Conclusion 
-
-Project Hail was our most challenging project yet, but it brought us
-a much deeper understanding of networking. 

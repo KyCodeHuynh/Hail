@@ -203,7 +203,7 @@ int main(int argc, char* argv[])
         size_t packets_done = 0;
         uint8_t i;
         for (i = bottom ; i != (top + 1)%MAX_SEQ_NUM; i = (i+1) % MAX_SEQ_NUM){
-            // printf("SERVER -- IN for-loop for file-sending\n");
+            // printf("SERVER -- IN for-loop for file p-sending\n");
             if (packets_sent >= packets_needed) {
                 // fprintf(stderr, "SERVER -- packets_sent >= packets_needed!\n");
                 break;
