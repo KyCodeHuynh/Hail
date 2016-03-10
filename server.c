@@ -12,10 +12,12 @@
 #include <sys/types.h>   // Definitions of a number of data types used in socket.h and netinet/in.h
 #include <sys/wait.h>    // For the waitpid() system call
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "hail.h"
 
 #define HAIL_PACKET_SIZE sizeof(hail_packet_t)
+#define TIMEOUT 50
 
 typedef enum window_status {
     NOT_SENT,
@@ -23,6 +25,11 @@ typedef enum window_status {
     ACKN,
     DONE
 } window_status_t;
+
+typedef struct stored_packet {
+    hail_packet_t packet;
+    long long int timestamp;
+} stored_packet_t;
 
 void error(char *msg)
 {
@@ -168,6 +175,7 @@ int main(int argc, char* argv[])
     printf("WINDOW_SIZE (in packets): %zu\n", WINDOW_SIZE);
     size_t MAX_SEQ_NUM = WINDOW_SIZE*2;
     window_status_t WINDOW[MAX_SEQ_NUM];
+    stored_packet_t STORED[MAX_SEQ_NUM];
     memset(WINDOW, NOT_SENT, sizeof(window_status_t)*MAX_SEQ_NUM);
     
 
@@ -211,6 +219,17 @@ int main(int argc, char* argv[])
                 read(file_fd, file_data, HAIL_CONTENT_SIZE);
                 construct_hail_packet(&response_pkt, seq_num, ack_num, control, version, file_size, file_data);
 
+                //store packet in case retransmission
+                memcpy(&(STORED[i].packet), &response_pkt, sizeof(hail_packet_t));
+                struct timeval timer_usec; 
+                long long int timestamp_usec; /* timestamp in microsecond */
+                if (!gettimeofday(&timer_usec, NULL)) {
+                    timestamp_usec = ((long long int) timer_usec.tv_sec) * 1000000ll + 
+                                    (long long int) timer_usec.tv_usec;
+                }
+                STORED[i].timestamp = timestamp_usec;
+                printf("SERVER -- timestamp of packet %d: %llu\n", STORED[i].timestamp );
+
                 printf("SERVER -- Sending packet %lu out of %zu, seq_num: %d\n", packets_sent+1, packets_needed, response_pkt.seq_num);
 
                 // TODO: Only send if no loss/corruption
@@ -253,6 +272,24 @@ int main(int argc, char* argv[])
                 break;
             }
 
+        }else if (WINDOW[bottom] == SENT){
+
+            //get current time and take difference with time stamp
+            struct timeval timer_usec; 
+            long long int timestamp_usec; /* timestamp in microsecond */
+            if (!gettimeofday(&timer_usec, NULL)) {
+                timestamp_usec = ((long long int) timer_usec.tv_sec) * 1000000ll + 
+                        (long long int) timer_usec.tv_usec;
+            }
+
+            if(timestamp_usec - STORED[bottom].timestamp > TIMEOUT){
+                //RESEND
+                printf("Reached TIMEOUT for packet seq_num: %d\n", bottom);
+                printf("Timestamp difference: %d\n", timestamp_usec - STORED[bottom].timestamp);
+                if (sendto(sockfd, &(STORED[bottom].packet), sizeof(hail_packet_t), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
+                    error("SERVER -- ERROR on sending\n");
+                }
+            }
         }
         /*if (packets_done == WINDOW_SIZE) {
                 //DONE. BREAK?
