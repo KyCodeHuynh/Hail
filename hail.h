@@ -12,7 +12,7 @@ typedef enum hail_control_code_t {
     OK,
     SYN, 
     SYN_ACK, 
-    ACK,
+    ACK
 } hail_control_code_t;
 
 // We have to manually disable automatic padding

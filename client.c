@@ -63,7 +63,6 @@ int main(int argc, char* argv[])
     // For formatting multi-line literal strings,
     // see: http://stackoverflow.com/questions/1135841/c-multiline-string-literal
     if (argc < 4) {
-
         printf(
             "\nUsage: \t%s hostname portnumber filename [OPTIONS]\n\n"
             "Send a message another endpoint using the Hail protocol.\n\n"
@@ -295,10 +294,12 @@ int main(int argc, char* argv[])
     }
 
     // Loop until all file data has been transferred
-    hail_packet_t response_pkt;
-    bool buffer_exists = false;
-    char* reorder_buffer = NULL;
+    hail_packet_t* response_pkt = (hail_packet_t *)malloc(packet_size);
+    // bool buffer_exists = false
+    int final_file_fd = open(FILE_NAME, O_WRONLY | O_CREAT, S_IRWXU);;
+    // char* reorder_buffer = NULL;
     uint64_t data_bytes_received = 0;
+    uint64_t bytes_written = 0;
     while (true) {
 
         struct sockaddr server_addr;
@@ -337,7 +338,7 @@ int main(int argc, char* argv[])
         // fprintf(stderr, "The file data we got: %s\n", recv_packet.file_data);
        
         if (construct_hail_packet(
-            &response_pkt, 
+            response_pkt, 
             recv_packet.seq_num,
             recv_packet.seq_num,
             ACK,
@@ -357,9 +358,9 @@ int main(int argc, char* argv[])
             fprintf(stderr, "CLIENT -- Our ACK packet was lost in-transit.\n");
         }
         else {
-            printf("CLIENT -- SENDING ACK for seq_num: %d\n", response_pkt.seq_num );
+            printf("CLIENT -- SENDING ACK for seq_num: %d\n", response_pkt->seq_num );
             
-            if (sendto(socketFD, &response_pkt, sizeof(response_pkt),0, results->ai_addr, results->ai_addrlen) < 0) {
+            if (sendto(socketFD, response_pkt, packet_size,0, results->ai_addr, results->ai_addrlen) < 0) {
                 char IP4address[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, results->ai_addr, IP4address, results->ai_addrlen);
                 fprintf(stderr, "CLIENT -- ERROR: ACK sendto() %s of %s failed\n", IP4address, FILE_NAME);
@@ -369,42 +370,50 @@ int main(int argc, char* argv[])
         }
 
         // Create reordering buffer?
-        if (! buffer_exists) {
-            uint64_t file_size = recv_packet.file_size;
-            size_t num_slots = ceil(file_size / HAIL_CONTENT_SIZE);
+        // if (! buffer_exists) {
+        //     uint64_t file_size = recv_packet.file_size;
+        //     size_t num_slots = ceil(file_size / HAIL_CONTENT_SIZE);
 
-            reorder_buffer = (char*)malloc(num_slots * HAIL_CONTENT_SIZE);
-            buffer_exists = true;
-        }
+        //     reorder_buffer = (char*)malloc(num_slots * HAIL_CONTENT_SIZE);
+        //     buffer_exists = true;
+        // }
 
         // Slot into reordering buffer by sequence number
-        memcpy(&(reorder_buffer[(size_t)recv_packet.seq_num]), recv_packet.file_data, HAIL_CONTENT_SIZE);
+        // memcpy(&(reorder_buffer[(size_t)recv_packet.seq_num]), recv_packet.file_data, HAIL_CONTENT_SIZE);
+        // fprintf(stderr, "Buffer entry after mempcy of received data: %s\n", reorder_buffer[(size_t)recv_packet.seq_num]);
+
+        // Write contents to disk as they arrive 
+        // if (recv_packet.seq_num == 2) {
+        //         fprintf(stderr, "Packet 2 file_data: %s\n", recv_packet.file_data);
+        // }
+        write(final_file_fd, recv_packet.file_data, fmin(HAIL_CONTENT_SIZE, recv_packet.file_size - bytes_written));
+        bytes_written += HAIL_CONTENT_SIZE;
 
         // Received all file data?
-        fprintf(stderr, "BEFORE: Data bytes received: %llu\nExpected file size: %llu\n", data_bytes_received, recv_packet.file_size);
+        // fprintf(stderr, "BEFORE: Data bytes received: %llu\nExpected file size: %llu\n", data_bytes_received, recv_packet.file_size);
         if ((data_bytes_received += HAIL_CONTENT_SIZE) >= recv_packet.file_size) {
-            fprintf(stderr, "CLIENT -- All file data received!\n");
+            fprintf(stderr, "CLIENT -- %llu of %llu bytes of file data received!\n", data_bytes_received, recv_packet.file_size);
             break;
         }
 
-        fprintf(stderr, "AFTER: Data bytes received: %llu\nExpected file size: %llu\n", data_bytes_received, recv_packet.file_size);
+        // fprintf(stderr, "AFTER: Data bytes received: %llu\nExpected file size: %llu\n", data_bytes_received, recv_packet.file_size);
     }
 
 
     // fprintf(stderr, "CLIENT -- DEBUG: Final file contents: %s\n", reorder_buffer);
 
+
     // Write final file to disk, creating it if it does not already exist
-    int final_file_fd = open(FILE_NAME, O_WRONLY | O_CREAT);
     if (final_file_fd == -1) {
         fprintf(stderr, "CLIENT -- ERROR: Something went wrong with creating the result file on disk.\n");
     }
 
-    size_t num_slots = ceil(file_size / HAIL_CONTENT_SIZE);
-    ssize_t bytes_written = write(final_file_fd, reorder_buffer, num_slots * HAIL_CONTENT_SIZE);
+    // size_t num_slots = ceil(file_size / HAIL_CONTENT_SIZE);
+    // ssize_t bytes_written = write(final_file_fd, reorder_buffer, num_slots * HAIL_CONTENT_SIZE);
 
-    if (bytes_written == -1) {
-        fprintf(stderr, "CLIENT -- ERROR: Something went wrong with writing the result file to disk.\n");
-    }
+    // if (bytes_written == -1) {
+    //     fprintf(stderr, "CLIENT -- ERROR: Something went wrong with writing the result file to disk.\n");
+    // }
 
     fprintf(stderr, "CLIENT -- Process exiting!\n");
     // Need to free up 'results' and everything else

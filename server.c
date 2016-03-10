@@ -12,7 +12,7 @@
 #include <sys/types.h>   // Definitions of a number of data types used in socket.h and netinet/in.h
 #include <sys/wait.h>    // For the waitpid() system call
 #include <unistd.h>
-#include <sys/time.h>
+#include <sys/timeb.h>
 
 #include "hail.h"
 
@@ -86,17 +86,17 @@ int main(int argc, char* argv[])
     }
 
     // printf("right before while loop\n");
-    printf("SERVER -- Waiting for connections...\n");
+    fprintf(stderr, "SERVER -- Waiting for connections...\n");
 
     // Only allocate reordering buffer if it was not already created from some packet
     int status = -1;
    
 
     hail_packet_t packet;
-    hail_packet_t response_pkt;
+    hail_packet_t* response_pkt = (hail_packet_t *)malloc(packet_size);
     char* response_buffer = (char*)malloc(packet_size);
     memset(&packet, 0, packet_size);
-    memset(&response_pkt, 0, packet_size);
+    memset(response_pkt, 0, packet_size);
 
 
     // Make sure server is always runner with infinite while loopclilen
@@ -115,10 +115,10 @@ int main(int argc, char* argv[])
         // Three-way handshake
         if (packet.control == SYN) {
 
-            printf("CLIENT -- Sent SYN to start handshake.\n"); 
+            fprintf(stderr, "CLIENT -- Sent SYN to start handshake.\n"); 
 
             construct_hail_packet(
-                &response_pkt,      // Packet pointer 
+                response_pkt,      // Packet pointer 
                 packet.seq_num + 1, // Sequence number
                 packet.seq_num,     // Acknowledgement number
                 SYN_ACK,            // Control code
@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
                 ""                  // File content
             );
 
-            memcpy(response_buffer, &response_pkt, sizeof(hail_packet_t));
+            memcpy(response_buffer, response_pkt, sizeof(hail_packet_t));
             // Send SYN ACK back to client
             if (sendto(sockfd, response_buffer, sizeof(response_buffer), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
                 error("SERVER -- ERROR on sending");
@@ -135,9 +135,9 @@ int main(int argc, char* argv[])
 
         }
         else if (packet.control == ACK){
-            
-            printf("CLIENT -- Sent ACK in reply to SYN ACK.\n");
-            printf("SERVER -- Final ACK received from client. Connection established!\n");
+            // fprintf(stderr, "SERVER -- DEBUG: Enum literal value from ACK packet: %d\n", packet.control);
+            fprintf(stderr, "CLIENT -- Sent ACK in reply to SYN ACK.\n");
+            fprintf(stderr, "SERVER -- Final ACK received from client. Connection established!\n");
             
             break;
         }
@@ -158,12 +158,12 @@ int main(int argc, char* argv[])
     //write(1, file_buffer, fileSize);
     
     size_t WINDOW_LIMIT_BYTES = atoi(argv[2]);
-    printf("WINDOW_LIMIT_BYTES: %zu\n", WINDOW_LIMIT_BYTES );
+    fprintf(stderr, "WINDOW_LIMIT_BYTES: %zu\n", WINDOW_LIMIT_BYTES );
 
     hail_packet_t receive_pkt;
     char recv_buffer[HAIL_PACKET_SIZE];
-    memset(&receive_pkt, 0, HAIL_PACKET_SIZE);
-    memset(&response_pkt, 0, HAIL_PACKET_SIZE);
+    memset(&receive_pkt, 0, packet_size);
+    memset(response_pkt, 0, HAIL_PACKET_SIZE);
     memset(recv_buffer, 0, HAIL_PACKET_SIZE);
   
 
@@ -171,8 +171,8 @@ int main(int argc, char* argv[])
     // a simple buffer of previously sent packets.
     // Send up to window limit size. Use calloc() to zero-initialize allocated memory.
     size_t WINDOW_SIZE = floor(WINDOW_LIMIT_BYTES / HAIL_PACKET_SIZE);
-    printf("PACKET_SIZE (in bytes): %lu\n", HAIL_PACKET_SIZE);
-    printf("WINDOW_SIZE (in packets): %zu\n", WINDOW_SIZE);
+    fprintf(stderr, "PACKET_SIZE (in bytes): %lu\n", HAIL_PACKET_SIZE);
+    fprintf(stderr, "WINDOW_SIZE (in packets): %zu\n", WINDOW_SIZE);
     size_t MAX_SEQ_NUM = WINDOW_SIZE*2;
     window_status_t WINDOW[MAX_SEQ_NUM];
     stored_packet_t STORED[MAX_SEQ_NUM];
@@ -185,7 +185,7 @@ int main(int argc, char* argv[])
     uint8_t bottom = 0;
     uint8_t top;
 
-    if(packets_needed < WINDOW_SIZE)
+    if (packets_needed < WINDOW_SIZE)
         top = packets_needed-1;
     else
         top = WINDOW_SIZE-1;
@@ -205,7 +205,7 @@ int main(int argc, char* argv[])
         for (i = bottom ; i != (top + 1) % MAX_SEQ_NUM; i = (i+1) % MAX_SEQ_NUM){
             // printf("SERVER -- IN for-loop for file-sending\n");
             if (packets_sent >= packets_needed) {
-                fprintf(stderr, "SERVER -- packets_sent >= packets_needed!\n");
+                // fprintf(stderr, "SERVER -- packets_sent >= packets_needed!\n");
                 break;
             }
             //if all entries are packets_doneE
@@ -213,31 +213,33 @@ int main(int argc, char* argv[])
                 packets_done++;
             }
 
-            
             if (WINDOW[i] == NOT_SENT) {
-                lseek(file_fd, file_offset, SEEK_CUR);
-                read(file_fd, file_data, HAIL_CONTENT_SIZE);
-                construct_hail_packet(&response_pkt, seq_num, ack_num, control, version, file_size, file_data);
+                lseek(file_fd, file_offset, SEEK_SET);
+                // TODO: Left over data in file_data buffer
+                read(file_fd, file_data, fmin(HAIL_CONTENT_SIZE, file_size - file_offset));
+                construct_hail_packet(response_pkt, seq_num, ack_num, control, version, file_size, file_data);
 
                 //store packet in case retransmission
-                memcpy(&(STORED[i].packet), &response_pkt, sizeof(hail_packet_t));
-                struct timeval timer_usec; 
-                long long int timestamp_usec; /* timestamp in microsecond */
-                if (!gettimeofday(&timer_usec, NULL)) {
-                    timestamp_usec = ((long long int) timer_usec.tv_sec) * 1000000ll + 
-                                    (long long int) timer_usec.tv_usec;
-                }
-                STORED[i].timestamp = timestamp_usec;
-                printf("SERVER -- timestamp of packet %d: %llu\n", STORED[i].timestamp );
+                // memcpy(&(STORED[i].packet), response_pkt, sizeof(hail_packet_t));
+                // struct timeb timer_msec; 
+                // long long int timestamp_msec; /* timestamp in microsecond */
+                // if (!ftime(&timer_msec)) {
+                //     timestamp_msec = ((long long int) timer_msec.time) * 1000ll + 
+                //                     (long long int) timer_msec.millitm;
+                // }
+                // STORED[i].timestamp = timestamp_msec;
+                // fprintf(stderr, "SERVER -- timestamp of packet %d: %llu\n", packets_sent + 1, STORED[i].timestamp);
 
-                printf("SERVER -- Sending packet %lu out of %zu, seq_num: %d\n", packets_sent+1, packets_needed, response_pkt.seq_num);
+                fprintf(stderr, "SERVER -- Sending packet %lu out of %zu, seq_num: %d\n", packets_sent+1, packets_needed, response_pkt->seq_num);
 
                 // TODO: Only send if no loss/corruption
-                if (sendto(sockfd, &response_pkt, sizeof(response_pkt), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
+                if (sendto(sockfd, response_pkt, packet_size, 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
                     error("SERVER -- ERROR on sending\n");
                 }
 
+                // No need for offset, as reading forward
                 file_offset += HAIL_CONTENT_SIZE;
+                WINDOW[i] = SENT;
                 packets_sent++;
                 seq_num = (seq_num+1) % (MAX_SEQ_NUM);
             }
@@ -250,12 +252,18 @@ int main(int argc, char* argv[])
         }
 
         unpack_hail_packet(recv_buffer, &receive_pkt);
-        printf("SERVER -- Data in ACK packet: %s\n", receive_pkt.file_data);
+        // fprintf(stderr, "SERVER -- Data in ACK packet: %s\n", receive_pkt.file_data);
 
+        // int dummy = 0;
+        // fprintf(stderr, "SERVER -- DEBUG: Enum literal value from received packet: %d\n", receive_pkt.control);
         if ((receive_pkt.control) == ACK) {
-            printf("SERVER -- received ACK for packet seq_num %d\n", receive_pkt.seq_num);
+            // dummy = 1;
+            // fprintf(stderr, "The invisible fprintf if-statement!\n");
+            fprintf(stderr, "SERVER -- received ACK for packet seq_num %d\n", receive_pkt.seq_num);
             WINDOW[(int)receive_pkt.seq_num] = ACKN;
         }
+
+        // fprintf(stderr, "Poor dummy crash test variable: %d\n", dummy);
         
         if (WINDOW[bottom] == ACKN) {
             bottom = (bottom + 1) % WINDOW_SIZE;
@@ -271,26 +279,26 @@ int main(int argc, char* argv[])
             if(WINDOW[bottom] == DONE){
                 break;
             }
+}
+        // }else if (WINDOW[bottom] == SENT){
 
-        }else if (WINDOW[bottom] == SENT){
+        //     //get current time and take difference with time stamp
+        //     struct timeb timer_msec; 
+        //     long long int timestamp_msec; /* timestamp in microsecond */
+        //     if (!ftime(&timer_msec)) {
+        //         timestamp_msec = ((long long int) timer_msec.time) * 1000ll + 
+        //                 (long long int) timer_msec.millitm;
+        //     }
 
-            //get current time and take difference with time stamp
-            struct timeval timer_usec; 
-            long long int timestamp_usec; /* timestamp in microsecond */
-            if (!gettimeofday(&timer_usec, NULL)) {
-                timestamp_usec = ((long long int) timer_usec.tv_sec) * 1000000ll + 
-                        (long long int) timer_usec.tv_usec;
-            }
-
-            if(timestamp_usec - STORED[bottom].timestamp > TIMEOUT){
-                //RESEND
-                printf("Reached TIMEOUT for packet seq_num: %d\n", bottom);
-                printf("Timestamp difference: %d\n", timestamp_usec - STORED[bottom].timestamp);
-                if (sendto(sockfd, &(STORED[bottom].packet), sizeof(hail_packet_t), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
-                    error("SERVER -- ERROR on sending\n");
-                }
-            }
-        }
+        //     if(timestamp_msec - STORED[bottom].timestamp > TIMEOUT){
+        //         //RESEND
+        //         fprintf(stderr, "Reached TIMEOUT for packet seq_num: %d\n", bottom);
+        //         fprintf(stderr, "Timestamp difference: %d\n", timestamp_msec - STORED[bottom].timestamp);
+        //         if (sendto(sockfd, &(STORED[bottom].packet), sizeof(hail_packet_t), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
+        //             error("SERVER -- ERROR on sending\n");
+        //         }
+        //     }
+        // }
         /*if (packets_done == WINDOW_SIZE) {
                 //DONE. BREAK?
             break;
