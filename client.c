@@ -332,7 +332,7 @@ int main(int argc, char* argv[])
         }
 
 
-        printf("CLIENT -- received file packet seq_num: %d\n",  recv_packet.seq_num);
+        printf("CLIENT -- received file packet seq_num %d with control code OK\n",  recv_packet.seq_num);
         // All good, so ACK the packet
 
         // fprintf(stderr, "The file data we got: %s\n", recv_packet.file_data);

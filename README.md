@@ -277,8 +277,7 @@ This allowed us to achieve streaming reads and writes on both server and client
 (respectively).
 
 
+## Conclusion 
 
-
-
-
-
+Project Hail was our most challenging project yet, but it brought us
+a much deeper understanding of networking. 
