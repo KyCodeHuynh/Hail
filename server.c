@@ -173,7 +173,7 @@ int main(int argc, char* argv[])
     size_t WINDOW_SIZE = floor(WINDOW_LIMIT_BYTES / HAIL_PACKET_SIZE);
     fprintf(stderr, "PACKET_SIZE (in bytes): %lu\n", HAIL_PACKET_SIZE);
     fprintf(stderr, "WINDOW_SIZE (in packets): %zu\n", WINDOW_SIZE);
-    size_t MAX_SEQ_NUM = WINDOW_SIZE*2;
+    size_t MAX_SEQ_NUM = (WINDOW_SIZE * 2);
     window_status_t WINDOW[MAX_SEQ_NUM];
     stored_packet_t STORED[MAX_SEQ_NUM];
     memset(WINDOW, NOT_SENT, sizeof(window_status_t)*MAX_SEQ_NUM);
@@ -202,7 +202,7 @@ int main(int argc, char* argv[])
         //loop through window and send all packets not sent
         size_t packets_done = 0;
         uint8_t i;
-        for (i = bottom ; i != (top + 1) % MAX_SEQ_NUM; i = (i+1) % MAX_SEQ_NUM){
+        for (i = bottom ; i != (top + 1)%MAX_SEQ_NUM; i = (i+1) % MAX_SEQ_NUM){
             // printf("SERVER -- IN for-loop for file-sending\n");
             if (packets_sent >= packets_needed) {
                 // fprintf(stderr, "SERVER -- packets_sent >= packets_needed!\n");
@@ -220,15 +220,15 @@ int main(int argc, char* argv[])
                 construct_hail_packet(response_pkt, seq_num, ack_num, control, version, file_size, file_data);
 
                 //store packet in case retransmission
-                // memcpy(&(STORED[i].packet), response_pkt, sizeof(hail_packet_t));
-                // struct timeb timer_msec; 
-                // long long int timestamp_msec; /* timestamp in microsecond */
-                // if (!ftime(&timer_msec)) {
-                //     timestamp_msec = ((long long int) timer_msec.time) * 1000ll + 
-                //                     (long long int) timer_msec.millitm;
-                // }
-                // STORED[i].timestamp = timestamp_msec;
-                // fprintf(stderr, "SERVER -- timestamp of packet %d: %llu\n", packets_sent + 1, STORED[i].timestamp);
+                memcpy(&(STORED[i].packet), response_pkt, sizeof(hail_packet_t));
+                struct timeb timer_msec; 
+                long long int timestamp_msec; /* timestamp in microsecond */
+                if (!ftime(&timer_msec)) {
+                    timestamp_msec = ((long long int) timer_msec.time) * 1000ll + 
+                                    (long long int) timer_msec.millitm;
+                }
+                STORED[i].timestamp = timestamp_msec;
+                fprintf(stderr, "SERVER -- timestamp of packet %d: %llu\n", packets_sent + 1, STORED[i].timestamp);
 
                 fprintf(stderr, "SERVER -- Sending packet %lu out of %zu, seq_num: %d\n", packets_sent+1, packets_needed, response_pkt->seq_num);
 
@@ -266,8 +266,8 @@ int main(int argc, char* argv[])
         // fprintf(stderr, "Poor dummy crash test variable: %d\n", dummy);
         
         if (WINDOW[bottom] == ACKN) {
-            bottom = (bottom + 1) % WINDOW_SIZE;
-            top = (top + 1) % WINDOW_SIZE;
+            bottom = (bottom + 1) % MAX_SEQ_NUM;
+            top = (top + 1) % MAX_SEQ_NUM;
             
             if (packets_sent >= packets_needed) {
                 WINDOW[top] = DONE;
@@ -279,26 +279,26 @@ int main(int argc, char* argv[])
             if(WINDOW[bottom] == DONE){
                 break;
             }
-}
-        // }else if (WINDOW[bottom] == SENT){
+// }
+        }else if (WINDOW[bottom] == SENT){
 
-        //     //get current time and take difference with time stamp
-        //     struct timeb timer_msec; 
-        //     long long int timestamp_msec; /* timestamp in microsecond */
-        //     if (!ftime(&timer_msec)) {
-        //         timestamp_msec = ((long long int) timer_msec.time) * 1000ll + 
-        //                 (long long int) timer_msec.millitm;
-        //     }
+            //get current time and take difference with time stamp
+            struct timeb timer_msec; 
+            long long int timestamp_msec; /* timestamp in microsecond */
+            if (!ftime(&timer_msec)) {
+                timestamp_msec = ((long long int) timer_msec.time) * 1000ll + 
+                        (long long int) timer_msec.millitm;
+            }
 
-        //     if(timestamp_msec - STORED[bottom].timestamp > TIMEOUT){
-        //         //RESEND
-        //         fprintf(stderr, "Reached TIMEOUT for packet seq_num: %d\n", bottom);
-        //         fprintf(stderr, "Timestamp difference: %d\n", timestamp_msec - STORED[bottom].timestamp);
-        //         if (sendto(sockfd, &(STORED[bottom].packet), sizeof(hail_packet_t), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
-        //             error("SERVER -- ERROR on sending\n");
-        //         }
-        //     }
-        // }
+            if(timestamp_msec - STORED[bottom].timestamp > TIMEOUT){
+                //RESEND
+                fprintf(stderr, "Reached TIMEOUT for packet seq_num: %d\n", bottom);
+                fprintf(stderr, "Timestamp difference: %d\n", timestamp_msec - STORED[bottom].timestamp);
+                if (sendto(sockfd, &(STORED[bottom].packet), sizeof(hail_packet_t), 0, (struct sockaddr *) &cli_addr, clilen ) < 0) {
+                    error("SERVER -- ERROR on sending\n");
+                }
+            }
+        }
         /*if (packets_done == WINDOW_SIZE) {
                 //DONE. BREAK?
             break;

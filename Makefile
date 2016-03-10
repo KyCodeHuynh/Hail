@@ -30,7 +30,7 @@ test: clean all
 	mkdir test/
 	mv $(CLIENT_NAME) test/
 	./$(SERVER_NAME) 4242 4096 &
-	cd test/ && ./$(CLIENT_NAME) localhost 4242 hail.h
+	cd test/ && ./$(CLIENT_NAME) localhost 4242 LICENSE
 
 clean:
 	rm -rf test/
