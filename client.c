@@ -394,7 +394,7 @@ int main(int argc, char* argv[])
     // fprintf(stderr, "CLIENT -- DEBUG: Final file contents: %s\n", reorder_buffer);
 
     // Write final file to disk, creating it if it does not already exist
-    int final_file_fd = open(FILE_NAME, O_WRONLY);
+    int final_file_fd = open(FILE_NAME, O_WRONLY | O_CREAT);
     if (final_file_fd == -1) {
         fprintf(stderr, "CLIENT -- ERROR: Something went wrong with creating the result file on disk.\n");
     }
@@ -406,7 +406,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "CLIENT -- ERROR: Something went wrong with writing the result file to disk.\n");
     }
 
-    fprintf(stderr, "CLIENT -- I'm outie!\n");
+    fprintf(stderr, "CLIENT -- Process exiting!\n");
     // Need to free up 'results' and everything else
     freeaddrinfo(results);
     close(socketFD);

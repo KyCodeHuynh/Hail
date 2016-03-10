@@ -26,10 +26,12 @@ server:
 client:
 	$(CC) $(FLAGS) -O2 -o $(CLIENT_NAME) $(CLIENT_SRC) $(LIBRARIES)
 
-test: all
-	# Use enough optimization by default to be warned about uninitialized variables
-	$(CC) $(FLAGS) -ggdb -o $(TEST_NAME) $(TEST_SRC) $(LIBRARIES)
-	./$(TEST_NAME)
+test: clean all
+	mkdir test/
+	mv $(CLIENT_NAME) test/
+	./$(SERVER_NAME) 4242 4096 &
+	cd test/ && ./$(CLIENT_NAME) localhost 4242 hail.h
 
 clean:
+	rm -rf test/
 	rm -rf *.o a.out *.dSYM $(SERVER_NAME) $(CLIENT_NAME) $(TEST_NAME)

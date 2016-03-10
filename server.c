@@ -297,7 +297,7 @@ int main(int argc, char* argv[])
         }*/
     }
 
-    fprintf(stderr, "SERVER -- I'm outie!\n");
+    fprintf(stderr, "SERVER -- Process exiting!\n");
     free(response_buffer);
     return EXIT_SUCCESS;
 }
