@@ -1,15 +1,15 @@
 # Hail 
+Stella Chung   (SID 004277565)
+Ky-Cuong Huynh (SID 204269084)
 
 Hail is a transport-layer protocol for reliable data transfer, implemented atop
 UDP.
-
 
 - [Hail Protocol Design](#hail-protocol-design)
     - [Segment Format](#segment-format)
     - [Connection Establishment](#connection-establishment)
     - [Chunking into Packets](#chunking-into-packets)
     - [Closing the Connection](#closing-the-connection)
-
 
 ## Hail Protocol Design
 
@@ -63,11 +63,10 @@ An explanation of the field design decisions:
   in the relevant sections. Up to 256 such control codes can exist, providing
   for the standard's extensibility.
 
+    * OK
     * SYN
     * SYN ACK
     * ACK 
-    * START
-    * END
     * CLOSE
 
 * Hail version: designed for graceful backwards compatibility handling, 
@@ -219,17 +218,63 @@ As for the sender’s window, we just increment modulo the wraparound limit:
 
 #### Time-Outs
 
-*TODO*: Logic for tracking recent sends, their time-outs, and resending
-
+The server tracks the timestamps for sent files. Before it shifts the send
+window forward, it checks to make sure that all packets within the window have
+been acknowledged. If a packet has not been acknowledged and the difference
+between its associated timestamp and the current time is greater than or equal
+to 50 ms, then the packet is resent. The send window will not shift forward
+until that packet has also been acknowledged.
 
 
 ### Closing the Connection
 
-The server 
+The server automatically closes the connection once all packets are sent 
+and acknowledged. It then exits. The client automatically closes and
+exits after acknowledging all packets. The file has been received. 
+
+
+## Difficulties Faced
+
+### Designing Hail
+
+When we first began designing Hail, we had many design decisions to make: 
+
+* Would we use positive or negative acknowledgements? Both? Why? How?
+* How would we coordinate a send/receive window across both sender and
+  receiver?
+
+And so on. 
+
+Importantly, it was hard to tell before begining what state we would need 
+to track (and how). Thus, we both purposely and accidentally had too
+much tracked within Hail's structures. This led to wading through 
+unnecessaryily messy code later while debugging. 
+
+We resolved this through careful removal of unneeded control codes, 
+fields in Hail packets, etc. We had to recheck sending/receiving each time
+to ensure there were no regressions. 
+
+
+### Generating Probabilities 
+
+Generating random numbers is a common task, but we hadn't had the need
+before to generate probabilities. We needed a way to take a random 
+number and turn that into a probability in some way. Eventually, we realized
+that we needed to take a wider view, for a sequence of random numbers. 
+Then, a random number between 0 and 100 is generated. We declare part of
+that range to correspond to "yes", and the inverse part to be "no". By
+checking if we are within the "yes" range, we have a probability. 
 
 
 
+### Streaming Read/Write to/from Disk 
 
+Finally, we realized that we needed to handle files possibly not fitting 
+in memory. We struggled with figuring out how to write only a portion at a
+time, and to coordinate which portion was written. Eventually, after careful
+diagramming and research, we realized that `lseek()` would come to the rescue.
+This allowed us to achieve streaming reads and writes on both server and client
+(respectively).
 
 
 

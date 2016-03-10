@@ -390,7 +390,8 @@ int main(int argc, char* argv[])
         fprintf(stderr, "AFTER: Data bytes received: %llu\nExpected file size: %llu\n", data_bytes_received, recv_packet.file_size);
     }
 
-    fprintf(stderr, "CLIENT -- DEBUG: Final file contents: %s\n", reorder_buffer);
+
+    // fprintf(stderr, "CLIENT -- DEBUG: Final file contents: %s\n", reorder_buffer);
 
     // Write final file to disk, creating it if it does not already exist
     int final_file_fd = open(FILE_NAME, O_WRONLY);

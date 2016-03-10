@@ -19,14 +19,15 @@ TEST_SRC = test.c hail.c
 
 all: server client
     
+# Use enough optimization by default to be warned about uninitialized variables
 server:
-	# Use enough optimization by default to be warned about uninitialized variables
 	$(CC) $(FLAGS) -O2 -o $(SERVER_NAME) $(SERVER_SRC) $(LIBRARIES)
 
 client:
 	$(CC) $(FLAGS) -O2 -o $(CLIENT_NAME) $(CLIENT_SRC) $(LIBRARIES)
 
-test:
+test: all
+	# Use enough optimization by default to be warned about uninitialized variables
 	$(CC) $(FLAGS) -ggdb -o $(TEST_NAME) $(TEST_SRC) $(LIBRARIES)
 	./$(TEST_NAME)
 

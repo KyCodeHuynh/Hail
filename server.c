@@ -200,7 +200,7 @@ int main(int argc, char* argv[])
                 fprintf(stderr, "SERVER -- packets_sent >= packets_needed!\n");
                 break;
             }
-            //if all entries are DONE
+            //if all entries are packets_doneE
             if (WINDOW[i] == DONE) {
                 packets_done++;
             }
